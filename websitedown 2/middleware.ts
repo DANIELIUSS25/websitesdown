@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 const REDIRECT_MAP: Record<string, string> = {
-  // /is-X-down → /status/domain
+  // /is-X-down â /status/domain
   "is-discord-down": "discord.com",
   "is-twitter-down": "x.com",
   "is-instagram-down": "instagram.com",
@@ -29,7 +29,7 @@ const REDIRECT_MAP: Record<string, string> = {
   "is-netlify-down": "netlify.com",
   "is-claude-down": "claude.ai",
 
-  // /X-down → /status/domain
+  // /X-down â /status/domain
   "discord-down": "discord.com",
   "twitter-down": "x.com",
   "instagram-down": "instagram.com",
@@ -46,7 +46,7 @@ const REDIRECT_MAP: Record<string, string> = {
   "roblox-down": "roblox.com",
   "gmail-down": "gmail.com",
 
-  // /X-status → /status/domain
+  // /X-status â /status/domain
   "discord-status": "discord.com",
   "twitter-status": "x.com",
   "instagram-status": "instagram.com",
