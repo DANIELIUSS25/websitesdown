@@ -48,7 +48,7 @@ type IntelResult = { domain: string; summary: string; confidence: string; issue_
    Tailwind v4 utility classes don't cover cleanly)
    ================================================================ */
 
-const S = tokens;
+const S = { ...tokens, t2: "#b0b8c7" };
 
 /* ================================================================
    COMPONENT
