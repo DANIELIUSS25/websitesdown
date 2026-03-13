@@ -1,19 +1,12 @@
 "use client";
 import { useState, useEffect, useRef, type FormEvent } from "react";
+import { tokens } from "@/lib/design-tokens";
 
 type CheckResult = { domain: string; reachable: boolean; status_code: number | null; latency_ms: number; error: string | null; checked_at: string };
 type IntelResult = { domain: string; summary: string; confidence: string; issue_type: string | null; signals: string[]; sources: { title: string; url: string }[] } | null;
 type RelatedService = { domain: string; name: string; iconKey: string };
 
-const S = {
-  void:"#060709",s1:"#0b0d12",s2:"#10131a",s3:"#161921",
-  e0:"rgba(255,255,255,0.03)",e1:"rgba(255,255,255,0.055)",e2:"rgba(255,255,255,0.09)",
-  t1:"#eef0f4",t2:"#9ba3b0",t3:"#6e7a8e",t4:"#3d4758",t5:"#252d3b",
-  ac:"#a5b4fc",acG:"rgba(165,180,252,0.06)",
-  up:"#34d399",upE:"rgba(52,211,153,0.18)",dn:"#f87171",dnE:"rgba(248,113,113,0.18)",warn:"#fbbf24",
-  mono:"var(--font-jetbrains),'JetBrains Mono',ui-monospace,monospace",
-  sans:"var(--font-manrope),'Manrope',system-ui,sans-serif",
-};
+const S = { ...tokens, void: tokens.bg };
 
 function timeAgo(iso: string): string {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -33,12 +26,21 @@ export default function StatusPageClient({ domain, name, category, statusPageUrl
   const [check, setCheck] = useState<CheckResult | null>(initialCheck);
   const [intel, setIntel] = useState<IntelResult>(initialIntel);
   const [checking, setChecking] = useState(false);
+  const [intelLoading, setIntelLoading] = useState(false);
   const [query, setQuery] = useState("");
   useEffect(() => { recheck(); }, [domain]);
   async function recheck() {
     setChecking(true);
-    try { const r = await fetch(`/api/check?domain=${encodeURIComponent(domain)}`); if (r.ok) setCheck(await r.json()); } catch {}
+    setIntelLoading(true);
+    // Parallel: server check + AI intelligence
+    const checkPromise = fetch(`/api/check?domain=${encodeURIComponent(domain)}`).then(r => r.ok ? r.json() : null).catch(err => { console.error("[status] Recheck failed:", err); return null; });
+    const intelPromise = fetch(`/api/intelligence?domain=${encodeURIComponent(domain)}`).then(r => r.ok ? r.json() : null).catch(err => { console.error("[status] Intel fetch failed:", err); return null; });
+    const checkResult = await checkPromise;
+    if (checkResult) setCheck(checkResult);
     setChecking(false);
+    const intelResult = await intelPromise;
+    if (intelResult) setIntel(intelResult);
+    setIntelLoading(false);
   }
   function handleSearch(e: FormEvent) {
     e.preventDefault();
@@ -87,13 +89,35 @@ export default function StatusPageClient({ domain, name, category, statusPageUrl
             ))}
           </div>
         )}
+        {/* AI Analysis — loading skeleton */}
+        {intelLoading && !intel && (
+          <div style={{ borderRadius: 12, background: S.s1, border: `1px solid ${S.e1}`, overflow: "hidden", marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "12px 18px", borderBottom: `1px solid ${S.e0}`, fontSize: 11, fontWeight: 700, color: S.t3, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="m8 12 3 3 5-5" /></svg>
+              Scanning AI intelligence...
+            </div>
+            <div style={{ padding: 18 }}>
+              {[80, 55, 65].map((w, i) => <div key={i} style={{ height: 8, borderRadius: 3, background: S.s3, marginBottom: 8, width: `${w}%`, animation: `skelP 1s ${i * 0.1}s ease-in-out infinite` }} />)}
+            </div>
+          </div>
+        )}
+
+        {/* AI Analysis — results */}
         {intel && intel.confidence !== undefined && (
           <div style={{ borderRadius: 12, background: S.s1, border: `1px solid ${S.e1}`, overflow: "hidden", marginBottom: 20 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px", borderBottom: `1px solid ${S.e0}` }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: S.t3, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Live Outage Intelligence</span>
-              <span style={{ fontSize: 9, fontWeight: 600, color: S.t5, textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>via Perplexity AI</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: S.t3, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="m8 12 3 3 5-5" /></svg>
+                AI Analysis
+              </div>
+              <span style={{ fontSize: 9, fontWeight: 600, color: S.t5, textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>Perplexity</span>
             </div>
             <div style={{ padding: "14px 18px" }}>
+              {/* Confidence badge + issue type */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+                <ConfidenceBadge confidence={intel.confidence} />
+                {intel.issue_type && <span style={{ fontFamily: S.mono, fontSize: 10, color: S.t3, padding: "2px 7px", background: S.s2, border: `1px solid ${S.e0}`, borderRadius: 4 }}>{intel.issue_type}</span>}
+              </div>
               <div style={{ fontSize: 13, color: S.t2, lineHeight: 1.65 }}>{intel.summary}</div>
               {intel.signals?.length > 0 && <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 5, padding: 0, margin: "10px 0 0" }}>{intel.signals.map((s, i) => <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: 7, fontSize: 12, color: S.t2, lineHeight: 1.55 }}><span style={{ width: 3, height: 3, borderRadius: "50%", background: S.ac, marginTop: 6, flexShrink: 0 }} />{s}</li>)}</ul>}
             </div>
@@ -147,5 +171,18 @@ export default function StatusPageClient({ domain, name, category, statusPageUrl
         </div>
       </div>
     </div>
+  );
+}
+
+function ConfidenceBadge({ confidence }: { confidence: string }) {
+  const styles: Record<string, { color: string; bg: string; bd: string; label: string }> = {
+    none:   { color: S.t3, bg: S.s3, bd: S.e0, label: "No signals" },
+    low:    { color: S.t2, bg: "rgba(148,163,184,0.06)", bd: "rgba(148,163,184,0.1)", label: "Low confidence" },
+    medium: { color: S.warn, bg: "rgba(251,191,36,0.06)", bd: "rgba(251,191,36,0.12)", label: "Medium confidence" },
+    high:   { color: S.dn, bg: "rgba(248,113,113,0.06)", bd: "rgba(248,113,113,0.12)", label: "High confidence" },
+  };
+  const c = styles[confidence] || styles.none;
+  return (
+    <span style={{ display: "inline-flex", padding: "2px 8px", borderRadius: 5, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "0.04em", color: c.color, background: c.bg, border: `1px solid ${c.bd}` }}>{c.label}</span>
   );
 }

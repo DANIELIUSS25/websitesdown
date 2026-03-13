@@ -42,7 +42,14 @@ export async function GET(req: NextRequest) {
 
   const result = await getOutageIntelligence(domain);
 
-  return NextResponse.json(result, {
+  return NextResponse.json({
+    domain,
+    summary: result.summary,
+    confidence: result.confidence,
+    issue_type: result.issue_type,
+    signals: result.signals,
+    sources: result.sources,
+  }, {
     headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" },
   });
 }

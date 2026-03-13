@@ -20,8 +20,10 @@
   --t1: #eef0f4; --t2: #b0b8c7; --t3: #6e7a8e; --t4: #3d4758; --t5: #252d3b;
   --ac: #a5b4fc; --ac-d: #818cf8; --ac-g: rgba(165,180,252,0.06); --ac-gs: rgba(165,180,252,0.12);
   --up: #34d399; --dn: #f87171;
-  --sans: 'Manrope', system-ui, -apple-system, sans-serif;
-  --mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-manrope: 'Manrope', system-ui, -apple-system, sans-serif;
+  --font-jetbrains: 'JetBrains Mono', ui-monospace, monospace;
+  --sans: var(--font-manrope);
+  --mono: var(--font-jetbrains);
   --out: cubic-bezier(0.16, 1, 0.3, 1);
   --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --r-sm: 8px; --r-md: 12px; --r-lg: 16px;

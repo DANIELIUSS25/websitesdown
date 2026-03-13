@@ -1,18 +1,10 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import { tokens } from "@/lib/design-tokens";
+import { DASHBOARD_REFRESH_MS } from "@/lib/constants";
 
 /* ââ Design tokens ââ */
-const S = {
-  void: "#060709", s1: "#0b0d12", s2: "#10131a", s3: "#161921",
-  e0: "rgba(255,255,255,0.03)", e1: "rgba(255,255,255,0.055)", e2: "rgba(255,255,255,0.09)",
-  t1: "#eef0f4", t2: "#9ba3b0", t3: "#6e7a8e", t4: "#3d4758", t5: "#252d3b",
-  ac: "#a5b4fc", acD: "#818cf8", acG: "rgba(165,180,252,0.06)",
-  up: "#34d399", upBg: "rgba(52,211,153,0.06)", upBd: "rgba(52,211,153,0.12)",
-  dn: "#f87171", dnBg: "rgba(248,113,113,0.06)", dnBd: "rgba(248,113,113,0.12)",
-  warn: "#fbbf24", warnBg: "rgba(251,191,36,0.06)", warnBd: "rgba(251,191,36,0.12)",
-  mono: "var(--font-jetbrains),'JetBrains Mono',ui-monospace,monospace",
-  sans: "var(--font-manrope),'Manrope',system-ui,sans-serif",
-};
+const S = { ...tokens, void: tokens.bg };
 
 type ServiceStatus = {
   domain: string; name: string; category: string | null;
@@ -102,7 +94,7 @@ export default function InternetStatusClient() {
 
   useEffect(() => {
     fetchData();
-    intervalRef.current = setInterval(fetchData, 30_000);
+    intervalRef.current = setInterval(fetchData, DASHBOARD_REFRESH_MS);
     const t = setInterval(() => setTick(x => x + 1), 1000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); clearInterval(t); };
   }, []);
@@ -111,7 +103,9 @@ export default function InternetStatusClient() {
     try {
       const r = await fetch("/api/status");
       if (r.ok) { setData(await r.json()); setLastRefresh(new Date()); }
-    } catch {}
+    } catch (err) {
+      console.error("[internet-status] Failed to fetch dashboard data:", err);
+    }
     setLoading(false);
   }
 

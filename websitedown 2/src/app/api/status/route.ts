@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { SERVICES } from "@/config/services";
+import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
 
@@ -48,9 +49,6 @@ export async function GET() {
     });
 
     try {
-      // Dynamic import — only loads if db.ts exists
-      const { db } = await import("@/lib/db");
-
       const pulse = await db.query(`
         SELECT
           domain,

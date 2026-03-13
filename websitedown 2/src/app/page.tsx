@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, type FormEvent } from "react";
+import { tokens } from "@/lib/design-tokens";
 
 /* ================================================================
    BRAND ICONS — optically balanced SVG system
@@ -47,13 +48,7 @@ type IntelResult = { domain: string; summary: string; confidence: string; issue_
    Tailwind v4 utility classes don't cover cleanly)
    ================================================================ */
 
-const S = {
-  bg: "#060709", s1: "#0b0d12", s2: "#10131a", s3: "#161921", s4: "#1c2029",
-  e0: "rgba(255,255,255,0.03)", e1: "rgba(255,255,255,0.055)", e2: "rgba(255,255,255,0.09)",
-  t1: "#eef0f4", t2: "#b0b8c7", t3: "#6e7a8e", t4: "#3d4758", t5: "#252d3b",
-  ac: "#a5b4fc", acD: "#818cf8", acG: "rgba(165,180,252,0.06)", acGS: "rgba(165,180,252,0.12)",
-  up: "#34d399", dn: "#f87171",
-};
+const S = { ...tokens, t2: "#b0b8c7" };
 
 /* ================================================================
    COMPONENT
@@ -83,8 +78,8 @@ export default function HomePage() {
     setLoading(true); setCheck(null); setIntel(null); setIntelLoading(true);
 
     // Parallel: server check + AI intelligence
-    const checkPromise = fetch(`/api/check?domain=${encodeURIComponent(domain)}`).then(r => r.ok ? r.json() : null).catch(() => null);
-    const intelPromise = fetch(`/api/intelligence?domain=${encodeURIComponent(domain)}`).then(r => r.ok ? r.json() : null).catch(() => null);
+    const checkPromise = fetch(`/api/check?domain=${encodeURIComponent(domain)}`).then(r => r.ok ? r.json() : null).catch(err => { console.error("[check] API error:", err); return null; });
+    const intelPromise = fetch(`/api/intelligence?domain=${encodeURIComponent(domain)}`).then(r => r.ok ? r.json() : null).catch(err => { console.error("[intel] API error:", err); return null; });
 
     // Show check result as soon as it arrives
     const checkResult = await checkPromise;
@@ -326,7 +321,7 @@ function IntelCard({ data }: { data: NonNullable<IntelResult> }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 18px", borderBottom: `1px solid ${S.e0}` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5, fontWeight: 700, color: S.t3, textTransform: "uppercase", letterSpacing: "0.06em" }}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="m8 12 3 3 5-5" /></svg>
-          Web Intelligence
+          AI Analysis
         </div>
         <span style={{ fontSize: 9, fontWeight: 600, color: S.t5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Perplexity</span>
       </div>
@@ -363,7 +358,7 @@ function IntelSkeleton() {
     <div style={{ borderRadius: 12, background: S.s1, border: `1px solid ${S.e1}`, overflow: "hidden", animation: "resIn 0.45s 0.12s cubic-bezier(0.16,1,0.3,1) both" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "13px 18px", borderBottom: `1px solid ${S.e0}`, fontSize: 10.5, fontWeight: 700, color: S.t3, textTransform: "uppercase", letterSpacing: "0.06em" }}>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="m8 12 3 3 5-5" /></svg>
-        Scanning web intelligence…
+        Scanning AI intelligence…
       </div>
       <div style={{ padding: 18 }}>
         {[80, 55, 65].map((w, i) => <div key={i} style={{ height: 8, borderRadius: 3, background: S.s3, marginBottom: 8, width: `${w}%`, animation: `skelP 1s ${i * 0.1}s ease-in-out infinite` }} />)}
@@ -377,9 +372,9 @@ function IntelUnavailable() {
     <div style={{ borderRadius: 12, background: S.s1, border: `1px solid ${S.e1}`, overflow: "hidden", animation: "resIn 0.45s 0.12s cubic-bezier(0.16,1,0.3,1) both" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "13px 18px", borderBottom: `1px solid ${S.e0}`, fontSize: 10.5, fontWeight: 700, color: S.t3, textTransform: "uppercase", letterSpacing: "0.06em" }}>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="m8 12 3 3 5-5" /></svg>
-        Web Intelligence
+        AI Analysis
       </div>
-      <div style={{ padding: "14px 18px", fontSize: 11.5, color: S.t4 }}>AI intelligence unavailable. Direct check shown above.</div>
+      <div style={{ padding: "14px 18px", fontSize: 11.5, color: S.t4 }}>AI analysis unavailable. Direct check shown above.</div>
     </div>
   );
 }
