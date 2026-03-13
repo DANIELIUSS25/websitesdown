@@ -70,6 +70,9 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/api") ||
     pathname.startsWith("/status") ||
     pathname.startsWith("/outages") ||
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/pricing") ||
     pathname === "/favicon.ico" ||
     pathname === "/sitemap.xml" ||
     pathname === "/robots.txt"
@@ -91,5 +94,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next|api|status|outages|about|privacy|contact|docs|favicon.ico|sitemap.xml|robots.txt).*)"],
+  matcher: ["/((?!_next|api|status|outages|auth|dashboard|pricing|about|privacy|contact|docs|favicon.ico|sitemap.xml|robots.txt).*)"],
 };
