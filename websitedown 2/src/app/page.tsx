@@ -885,6 +885,7 @@ function CurrentOutages() {
   const [data, setData] = useState<OutageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<string>("");
+  const [pulseData, setPulseData] = useState<Record<string, number[]>>({});
 
   const fetchOutages = useCallback(async () => {
     try {
@@ -893,6 +894,20 @@ function CurrentOutages() {
         const d: OutageData = await r.json();
         setData(d);
         setLastUpdate(new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }));
+
+        // Fetch sparkline data for all services
+        const pulseResults = await Promise.all(
+          d.services.map(svc =>
+            fetch(`/api/pulse?domain=${encodeURIComponent(svc.domain)}`).then(r => r.ok ? r.json() : null).catch(() => null)
+          )
+        );
+        const map: Record<string, number[]> = {};
+        pulseResults.forEach((r, i) => {
+          if (r?.sparkline_24h) {
+            map[d.services[i].domain] = r.sparkline_24h.map((s: any) => s.reports ?? s.down ?? 0);
+          }
+        });
+        setPulseData(map);
       }
     } catch { /* silent */ }
     setLoading(false);
@@ -909,9 +924,9 @@ function CurrentOutages() {
       <section style={{ padding: "76px 0" }}>
         <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 20px" }}>
           <h2 style={{ fontFamily: "var(--font-manrope)", fontSize: 21, fontWeight: 800, letterSpacing: "-0.04em", marginBottom: 32 }}>Current Internet Outages</h2>
-          <div style={{ display: "grid", gap: 6 }}>
-            {[1,2,3].map(i => (
-              <div key={i} style={{ height: 56, borderRadius: 10, background: S.s1, border: `1px solid ${S.e0}`, animation: `skelP 1s ${i * 0.1}s ease-in-out infinite` }} />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
+            {[1,2,3,4,5,6].map(i => (
+              <div key={i} style={{ height: 160, borderRadius: 12, background: S.s1, border: `1px solid ${S.e0}`, animation: `skelP 1s ${i * 0.1}s ease-in-out infinite` }} />
             ))}
           </div>
         </div>
@@ -921,7 +936,7 @@ function CurrentOutages() {
 
   if (!data) return null;
 
-  // Combine: show outages first, then all services sorted by status
+  // Sort: anomalies first, then by report volume
   const statusOrder: Record<string, number> = { down: 0, degraded: 1, unknown: 2, operational: 3 };
   const sorted = [...data.services].sort((a, b) => {
     const aO = a.anomaly_level !== "normal" ? -1 : (statusOrder[a.status] ?? 3);
@@ -937,7 +952,7 @@ function CurrentOutages() {
       <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 20px" }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 24 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <h2 style={{ fontFamily: "var(--font-manrope)", fontSize: 21, fontWeight: 800, letterSpacing: "-0.04em" }}>Current Internet Outages</h2>
             {hasIssues && (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: S.dn, background: S.dnBg, border: `1px solid ${S.dnBd}` }}>
@@ -957,7 +972,7 @@ function CurrentOutages() {
         </div>
 
         {/* Summary bar */}
-        <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
           <SummaryChip label="Tracked" value={data.total} />
           <SummaryChip label="Operational" value={data.operational} color={S.up} />
           {data.issues > 0 && <SummaryChip label="Issues" value={data.issues} color={S.dn} />}
@@ -975,10 +990,10 @@ function CurrentOutages() {
           </div>
         )}
 
-        {/* Service rows */}
-        <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${S.e1}` }}>
-          {sorted.slice(0, 12).map((svc, i) => (
-            <OutageRow key={svc.domain} svc={svc} isLast={i === Math.min(sorted.length, 12) - 1} />
+        {/* Outage cards grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
+          {sorted.slice(0, 12).map((svc) => (
+            <OutageCard key={svc.domain} svc={svc} sparkline={pulseData[svc.domain]} />
           ))}
         </div>
       </div>
@@ -995,23 +1010,21 @@ function SummaryChip({ label, value, color }: { label: string; value: number; co
   );
 }
 
-function OutageRow({ svc, isLast }: { svc: OutageService; isLast: boolean }) {
+function OutageCard({ svc, sparkline }: { svc: OutageService; sparkline?: number[] }) {
   const [hov, setHov] = useState(false);
 
-  const statusColors: Record<string, { dot: string; label: string; text: string }> = {
-    operational: { dot: S.up, label: "Operational", text: S.up },
-    degraded: { dot: S.warn, label: "Degraded", text: S.warn },
-    down: { dot: S.dn, label: "Down", text: S.dn },
-    unknown: { dot: S.t4, label: "Unknown", text: S.t4 },
+  const statusColors: Record<string, { dot: string; label: string }> = {
+    operational: { dot: S.up, label: "Operational" },
+    degraded: { dot: S.warn, label: "Degraded" },
+    down: { dot: S.dn, label: "Down" },
+    unknown: { dot: S.t4, label: "Unknown" },
   };
   const st = statusColors[svc.status] || statusColors.unknown;
 
-  const trendLabels: Record<string, { text: string; color: string; icon: string }> = {
-    spike: { text: "major spike", color: S.dn, icon: "\u2191\u2191" },
-    rising: { text: "rising", color: S.warn, icon: "\u2191" },
-    stable: { text: "stable", color: S.t4, icon: "\u2192" },
-  };
-  const tr = trendLabels[svc.trend] || trendLabels.stable;
+  const isAbnormal = svc.anomaly_level !== "normal";
+  const isMajor = svc.anomaly_level === "major";
+  const accentColor = isMajor ? S.dn : isAbnormal ? S.warn : S.up;
+  const spikeLabel = isMajor ? "Major spike detected" : svc.anomaly_level === "elevated" ? "Elevated activity" : null;
 
   return (
     <a
@@ -1019,44 +1032,117 @@ function OutageRow({ svc, isLast }: { svc: OutageService; isLast: boolean }) {
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        display: "grid", gridTemplateColumns: "1fr auto auto auto", alignItems: "center", gap: 16,
-        padding: "12px 18px",
-        background: hov ? S.s2 : S.s1,
-        borderBottom: isLast ? "none" : `1px solid ${S.e0}`,
-        textDecoration: "none", color: S.t1,
-        transition: "background 0.15s",
+        borderRadius: 12, padding: 1, textDecoration: "none", color: S.t1,
+        transition: "all 0.22s",
+        background: hov
+          ? `linear-gradient(145deg, ${isAbnormal ? (isMajor ? "rgba(248,113,113,0.2)" : "rgba(251,191,36,0.15)") : "rgba(255,255,255,0.09)"}, rgba(255,255,255,0.03))`
+          : isAbnormal ? `linear-gradient(145deg, ${isMajor ? "rgba(248,113,113,0.08)" : "rgba(251,191,36,0.06)"}, ${S.e1})` : S.e1,
+        transform: hov ? "translateY(-2px)" : "none",
+        boxShadow: hov ? `0 12px 32px rgba(0,0,0,0.25)` : "none",
       }}
     >
-      {/* Service name + domain */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-        <span style={{ width: 6, height: 6, borderRadius: "50%", background: st.dot, flexShrink: 0, position: "relative" }}>
-          {svc.status === "down" && <span style={{ position: "absolute", inset: -3, borderRadius: "50%", border: `1px solid ${S.dn}`, animation: "dotRing 2s ease-out infinite" }} />}
-        </span>
-        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: "-0.02em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{svc.service}</span>
-        <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 10, color: S.t4, whiteSpace: "nowrap" }}>{svc.domain}</span>
+      <div style={{
+        background: hov ? S.s2 : S.s1, borderRadius: 11, padding: "16px 18px",
+        display: "flex", flexDirection: "column", gap: 12, transition: "background 0.22s",
+        minHeight: 148,
+      }}>
+        {/* Top: service name + status */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: st.dot, flexShrink: 0, position: "relative" }}>
+              {(svc.status === "down" || isMajor) && <span style={{ position: "absolute", inset: -3, borderRadius: "50%", border: `1px solid ${st.dot}`, animation: "dotRing 2s ease-out infinite" }} />}
+            </span>
+            <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: "-0.02em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{svc.service}</span>
+          </div>
+          <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: st.dot, whiteSpace: "nowrap", flexShrink: 0 }}>{st.label}</span>
+        </div>
+
+        {/* Sparkline */}
+        <div style={{ flex: 1, minHeight: 32 }}>
+          <OutageSparkline data={sparkline} anomaly={svc.anomaly_level} />
+        </div>
+
+        {/* Report count */}
+        <div>
+          {svc.reports_15m > 0 ? (
+            <div style={{ fontSize: 12, fontWeight: 600, color: accentColor, lineHeight: 1.4 }}>
+              <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontWeight: 700, fontSize: 14 }}>{svc.reports_15m}</span>
+              <span style={{ color: S.t3, fontWeight: 500 }}> report{svc.reports_15m !== 1 ? "s" : ""} in last 15 min</span>
+            </div>
+          ) : svc.reports_1h > 0 ? (
+            <div style={{ fontSize: 12, fontWeight: 600, color: S.t3, lineHeight: 1.4 }}>
+              <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontWeight: 700, fontSize: 14, color: S.t2 }}>{svc.reports_1h}</span>
+              <span style={{ fontWeight: 500 }}> report{svc.reports_1h !== 1 ? "s" : ""} in last hour</span>
+            </div>
+          ) : (
+            <div style={{ fontSize: 11, color: S.t4 }}>No recent reports</div>
+          )}
+        </div>
+
+        {/* Anomaly badge */}
+        {spikeLabel && (
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 5, alignSelf: "flex-start",
+            padding: "4px 10px", borderRadius: 6,
+            fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em",
+            color: isMajor ? S.dn : S.warn,
+            background: isMajor ? S.dnBg : S.warnBg,
+            border: `1px solid ${isMajor ? S.dnBd : S.warnBd}`,
+          }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              {isMajor ? <><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></> : <><polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" /></>}
+            </svg>
+            {spikeLabel}
+          </div>
+        )}
       </div>
-
-      {/* Status */}
-      <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: st.text, whiteSpace: "nowrap" }}>{st.label}</span>
-
-      {/* Reports */}
-      {svc.reports_1h > 0 ? (
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 9px", borderRadius: 5, fontSize: 10, fontWeight: 600, fontFamily: "var(--font-jetbrains), var(--mono)", color: tr.color, background: svc.anomaly_level !== "normal" ? (svc.anomaly_level === "major" ? S.dnBg : S.warnBg) : S.s3, border: `1px solid ${svc.anomaly_level === "major" ? S.dnBd : svc.anomaly_level === "elevated" ? S.warnBd : S.e0}`, whiteSpace: "nowrap" }}>
-          <span>{svc.reports_1h} report{svc.reports_1h !== 1 ? "s" : ""}</span>
-          <span style={{ fontSize: 9 }}>{tr.icon}</span>
-        </span>
-      ) : (
-        <span style={{ fontSize: 10, color: S.t5, fontFamily: "var(--font-jetbrains), var(--mono)" }}>0 reports</span>
-      )}
-
-      {/* Trend label */}
-      {svc.anomaly_level !== "normal" && (
-        <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", padding: "2px 7px", borderRadius: 4, color: svc.anomaly_level === "major" ? S.dn : S.warn, background: svc.anomaly_level === "major" ? S.dnBg : S.warnBg, border: `1px solid ${svc.anomaly_level === "major" ? S.dnBd : S.warnBd}`, whiteSpace: "nowrap" }}>
-          {svc.anomaly_level === "major" ? "major spike" : "elevated"}
-        </span>
-      )}
-      {svc.anomaly_level === "normal" && <span />}
     </a>
+  );
+}
+
+function OutageSparkline({ data, anomaly }: { data?: number[]; anomaly: string }) {
+  const w = 200, h = 36;
+
+  if (!data || data.length === 0) {
+    return (
+      <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ display: "block" }}>
+        <line x1={0} x2={w} y1={h - 2} y2={h - 2} stroke={S.e1} strokeWidth={1} />
+      </svg>
+    );
+  }
+
+  const max = Math.max(...data, 1);
+  const step = w / Math.max(data.length - 1, 1);
+  const isMajor = anomaly === "major";
+  const isElevated = anomaly === "elevated";
+  const lineColor = isMajor ? S.dn : isElevated ? S.warn : S.ac;
+
+  const pts = data.map((v, i) => `${(i * step).toFixed(1)},${(h - 2 - (v / max) * (h - 6)).toFixed(1)}`);
+  const line = `M${pts.join(" L")}`;
+  const area = `${line} L${w},${h} L0,${h} Z`;
+
+  const peakVal = Math.max(...data);
+  const peakIdx = data.lastIndexOf(peakVal);
+  const peakX = peakIdx * step;
+  const peakY = h - 2 - (peakVal / max) * (h - 6);
+
+  return (
+    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ display: "block", borderRadius: 4 }}>
+      <defs>
+        <linearGradient id={`osg-${anomaly}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={lineColor} stopOpacity={0.12} />
+          <stop offset="100%" stopColor={lineColor} stopOpacity={0.01} />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#osg-${anomaly})`} />
+      <path d={line} fill="none" stroke={lineColor} strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round" opacity={0.7} />
+      {peakVal > 0 && (
+        <>
+          <circle cx={peakX} cy={peakY} r={2.5} fill={lineColor} opacity={0.9} />
+          {(isMajor || isElevated) && <circle cx={peakX} cy={peakY} r={5} fill="none" stroke={lineColor} strokeWidth={0.8} opacity={0.3} />}
+        </>
+      )}
+    </svg>
   );
 }
 
