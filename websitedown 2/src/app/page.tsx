@@ -703,27 +703,42 @@ function IntelCard({ data }: { data: NonNullable<IntelResult> }) {
         <span style={{ fontSize: 9, fontWeight: 600, color: S.t5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Perplexity</span>
       </div>
       <div style={{ padding: "14px 18px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
-          <span style={{ display: "inline-flex", padding: "2px 8px", borderRadius: 5, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", ...parseStyle(conf.cls) }}>{conf.label}</span>
-          {data.issue_type && <span style={{ fontFamily: "var(--font-jetbrains)", fontSize: 10, color: S.t3, padding: "2px 7px", background: S.s2, border: `1px solid ${S.e0}`, borderRadius: 4 }}>{data.issue_type}</span>}
-        </div>
-        <div style={{ fontSize: 12.5, color: S.t2, lineHeight: 1.6, marginBottom: data.signals?.length ? 10 : 0 }}>{data.summary}</div>
+        {/* AI Summary */}
+        <div style={{ fontSize: 10, fontWeight: 700, color: S.t4, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>AI Summary</div>
+        <div style={{ fontSize: 13, color: S.t1, lineHeight: 1.6, fontWeight: 600, marginBottom: 14 }}>{data.summary}</div>
+        {data.issue_type && <span style={{ fontFamily: "var(--font-jetbrains)", fontSize: 10, color: S.t3, padding: "2px 7px", background: S.s2, border: `1px solid ${S.e0}`, borderRadius: 4, display: "inline-block", marginBottom: 14 }}>{data.issue_type}</span>}
+
+        {/* Detected Signals */}
         {data.signals?.length > 0 && (
-          <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 5 }}>
-            {data.signals.map((s, i) => (
-              <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: 7, fontSize: 11.5, color: S.t2, lineHeight: 1.5 }}>
-                <span style={{ width: 3, height: 3, borderRadius: "50%", background: S.ac, marginTop: 6, flexShrink: 0 }} />
-                {s}
-              </li>
-            ))}
-          </ul>
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: S.t4, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Signals</div>
+            <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 5, padding: 0, margin: 0 }}>
+              {data.signals.map((s, i) => (
+                <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: 7, fontSize: 11.5, color: S.t2, lineHeight: 1.5 }}>
+                  <span style={{ width: 4, height: 4, borderRadius: "50%", background: S.ac, marginTop: 6, flexShrink: 0 }} />
+                  {s}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
+
+        {/* Confidence */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: S.t4, textTransform: "uppercase", letterSpacing: "0.06em" }}>Confidence</span>
+          <span style={{ display: "inline-flex", padding: "2px 8px", borderRadius: 5, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", ...parseStyle(conf.cls) }}>{conf.label}</span>
+        </div>
       </div>
+
+      {/* Sources */}
       {data.sources?.length > 0 && (
-        <div style={{ borderTop: `1px solid ${S.e0}`, padding: "10px 18px", display: "flex", flexWrap: "wrap", gap: 5 }}>
-          {data.sources.map((s, i) => (
-            <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" style={{ fontFamily: "var(--font-jetbrains)", fontSize: 9.5, fontWeight: 500, color: S.ac, textDecoration: "none", padding: "2px 7px", background: S.acG, border: `1px solid rgba(165,180,252,0.08)`, borderRadius: 4 }}>{s.title}</a>
-          ))}
+        <div style={{ borderTop: `1px solid ${S.e0}`, padding: "10px 18px" }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: S.t4, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Sources</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+            {data.sources.map((s, i) => (
+              <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" style={{ fontFamily: "var(--font-jetbrains)", fontSize: 9.5, fontWeight: 500, color: S.ac, textDecoration: "none", padding: "2px 7px", background: S.acG, border: `1px solid rgba(165,180,252,0.08)`, borderRadius: 4 }}>{s.title}</a>
+            ))}
+          </div>
         </div>
       )}
     </div>

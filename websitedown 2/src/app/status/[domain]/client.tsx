@@ -227,15 +227,35 @@ export default function StatusPageClient({ domain, name, category, statusPageUrl
               <span style={{ fontSize: 9, fontWeight: 600, color: S.t5, textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>Perplexity</span>
             </div>
             <div style={{ padding: "14px 18px" }}>
-              {/* Confidence badge + issue type */}
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+              {/* AI Summary */}
+              <div style={{ fontSize: 10, fontWeight: 700, color: S.t4, textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 6 }}>AI Summary</div>
+              <div style={{ fontSize: 13, color: S.t1, lineHeight: 1.65, fontWeight: 600, marginBottom: 14 }}>{intel.summary}</div>
+              {intel.issue_type && <span style={{ fontFamily: S.mono, fontSize: 10, color: S.t3, padding: "2px 7px", background: S.s2, border: `1px solid ${S.e0}`, borderRadius: 4, display: "inline-block", marginBottom: 14 }}>{intel.issue_type}</span>}
+
+              {/* Detected Signals */}
+              {intel.signals?.length > 0 && (
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: S.t4, textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 8 }}>Signals</div>
+                  <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 5, padding: 0, margin: 0 }}>
+                    {intel.signals.map((s, i) => <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: 7, fontSize: 12, color: S.t2, lineHeight: 1.55 }}><span style={{ width: 4, height: 4, borderRadius: "50%", background: S.ac, marginTop: 6, flexShrink: 0 }} />{s}</li>)}
+                  </ul>
+                </div>
+              )}
+
+              {/* Confidence */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: S.t4, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Confidence</span>
                 <ConfidenceBadge confidence={intel.confidence} />
-                {intel.issue_type && <span style={{ fontFamily: S.mono, fontSize: 10, color: S.t3, padding: "2px 7px", background: S.s2, border: `1px solid ${S.e0}`, borderRadius: 4 }}>{intel.issue_type}</span>}
               </div>
-              <div style={{ fontSize: 13, color: S.t2, lineHeight: 1.65 }}>{intel.summary}</div>
-              {intel.signals?.length > 0 && <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 5, padding: 0, margin: "10px 0 0" }}>{intel.signals.map((s, i) => <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: 7, fontSize: 12, color: S.t2, lineHeight: 1.55 }}><span style={{ width: 3, height: 3, borderRadius: "50%", background: S.ac, marginTop: 6, flexShrink: 0 }} />{s}</li>)}</ul>}
             </div>
-            {intel.sources?.length > 0 && <div style={{ borderTop: `1px solid ${S.e0}`, padding: "10px 18px", display: "flex", flexWrap: "wrap", gap: 5 }}>{intel.sources.map((s, i) => <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" style={{ fontFamily: S.mono, fontSize: 9.5, fontWeight: 500, color: S.ac, textDecoration: "none", padding: "2px 7px", background: S.acG, border: "1px solid rgba(165,180,252,0.08)", borderRadius: 4 }}>{s.title}</a>)}</div>}
+
+            {/* Sources */}
+            {intel.sources?.length > 0 && (
+              <div style={{ borderTop: `1px solid ${S.e0}`, padding: "10px 18px" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: S.t4, textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: 6 }}>Sources</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>{intel.sources.map((s, i) => <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" style={{ fontFamily: S.mono, fontSize: 9.5, fontWeight: 500, color: S.ac, textDecoration: "none", padding: "2px 7px", background: S.acG, border: "1px solid rgba(165,180,252,0.08)", borderRadius: 4 }}>{s.title}</a>)}</div>
+              </div>
+            )}
           </div>
         )}
         {statusPageUrl && (
