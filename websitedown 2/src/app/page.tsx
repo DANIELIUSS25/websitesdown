@@ -139,7 +139,8 @@ export default function HomePage() {
         <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
           <a href="#platforms" style={{ padding: "6px 12px", fontSize: 12.5, fontWeight: 600, color: S.t3, textDecoration: "none", borderRadius: 8 }}>Status</a>
           <a href="#pages" style={{ padding: "6px 12px", fontSize: 12.5, fontWeight: 600, color: S.t3, textDecoration: "none", borderRadius: 8 }}>Checks</a>
-          <a href="/api" style={{ padding: "6px 14px", fontSize: 12, fontWeight: 700, color: S.bg, background: S.t1, textDecoration: "none", borderRadius: 8 }}>API</a>
+          <a href="/pricing" style={{ padding: "6px 12px", fontSize: 12.5, fontWeight: 600, color: S.t3, textDecoration: "none", borderRadius: 8 }}>Pricing</a>
+          <a href="/dashboard" style={{ padding: "6px 14px", fontSize: 12, fontWeight: 700, color: S.bg, background: S.t1, textDecoration: "none", borderRadius: 8 }}>Dashboard</a>
         </div>
       </nav>
 
