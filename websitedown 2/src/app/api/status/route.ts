@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import { SERVICES } from "@/config/services";
 
 export const runtime = "nodejs";
@@ -39,8 +38,7 @@ export async function GET() {
 
     // 2) Report pulse data (if DB available)
     let pulseData: any[] = [];
-    let recentIncidents: any[] = [];
-    let globalStats = { total_services: SERVICES.length, operational: 0, degraded: 0, down: 0, unknown: 0 };
+    const globalStats = { total_services: SERVICES.length, operational: 0, degraded: 0, down: 0, unknown: 0 };
 
     serviceStatus.forEach(s => {
       if (s.status === "operational") globalStats.operational++;
@@ -50,7 +48,9 @@ export async function GET() {
     });
 
     try {
-      // Get report pulse for all services
+      // Dynamic import — only loads if db.ts exists
+      const { db } = await import("@/lib/db");
+
       const pulse = await db.query(`
         SELECT
           domain,
@@ -65,7 +65,6 @@ export async function GET() {
       `);
       pulseData = pulse.rows as any[];
 
-      // Get hourly sparklines for top services
       const sparklines = await db.query(`
         SELECT domain, date_trunc('hour', window_start) as hour, SUM(reports_down)::int as reports
         FROM report_snapshots
@@ -74,20 +73,17 @@ export async function GET() {
         ORDER BY domain, 1
       `);
 
-      // Group sparklines by domain
       const sparkMap: Record<string, number[]> = {};
       for (const row of sparklines.rows as any[]) {
         if (!sparkMap[row.domain]) sparkMap[row.domain] = [];
         sparkMap[row.domain].push(row.reports);
       }
 
-      // Attach sparklines to pulse data
       pulseData = pulseData.map(p => ({
         ...p,
         sparkline: sparkMap[p.domain] || [],
       }));
 
-      // Get baselines for anomaly detection
       const baselines = await db.query(`
         SELECT domain, avg_reports_15m
         FROM report_baselines
@@ -99,7 +95,6 @@ export async function GET() {
         blMap[row.domain] = parseFloat(row.avg_reports_15m) || 1;
       }
 
-      // Compute anomaly levels
       pulseData = pulseData.map(p => {
         const baseline = blMap[p.domain] || 1;
         const ratio = p.reports_15m / baseline;
@@ -109,9 +104,8 @@ export async function GET() {
         return { ...p, baseline_15m: Math.round(baseline), spike_ratio: Math.round(ratio * 10) / 10, anomaly };
       });
 
-    } catch (e: any) {
+    } catch {
       // DB not available — continue with check data only
-      console.warn("[status] DB unavailable:", e.message);
     }
 
     // 3) Build current outages list
