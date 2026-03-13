@@ -61,6 +61,8 @@ export default function HomePage() {
   const [check, setCheck] = useState<CheckResult | null>(null);
   const [intel, setIntel] = useState<IntelResult>(undefined as any);
   const [intelLoading, setIntelLoading] = useState(false);
+  const [scanStage, setScanStage] = useState(0); // 0=idle, 1-7=stages, 8=done
+  const stageTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -71,11 +73,24 @@ export default function HomePage() {
     return () => document.removeEventListener("keydown", h);
   }, []);
 
+  function clearStageTimers() {
+    stageTimers.current.forEach(t => clearTimeout(t));
+    stageTimers.current = [];
+  }
+
   async function runCheck(raw: string) {
     const domain = raw.replace(/^https?:\/\//, "").replace(/\/.*$/, "").replace(/^www\./, "").toLowerCase();
     if (!domain) return;
 
+    clearStageTimers();
     setLoading(true); setCheck(null); setIntel(null); setIntelLoading(true);
+    setScanStage(1);
+
+    // Auto-advance stages 1-4 on timers (server check phase)
+    const delays = [500, 1000, 1600, 2200]; // when to advance to stages 2,3,4,5
+    delays.forEach((ms, i) => {
+      stageTimers.current.push(setTimeout(() => setScanStage(i + 2), ms));
+    });
 
     // Parallel: server check + AI intelligence
     const checkPromise = fetch(`/api/check?domain=${encodeURIComponent(domain)}`).then(r => r.ok ? r.json() : null).catch(err => { console.error("[check] API error:", err); return null; });
@@ -86,15 +101,27 @@ export default function HomePage() {
     if (checkResult) {
       setCheck(checkResult);
     } else {
-      // Client-side fallback
       setCheck(await clientCheck(domain));
     }
-    setLoading(false);
+
+    // Ensure we're at least on stage 5 when check completes
+    clearStageTimers();
+    setScanStage(prev => Math.max(prev, 5));
+
+    // Advance to stage 6 after a beat
+    stageTimers.current.push(setTimeout(() => setScanStage(prev => Math.max(prev, 6)), 600));
 
     // Intel arrives later
     const intelResult = await intelPromise;
+    clearStageTimers();
+    setScanStage(7);
     setIntel(intelResult);
     setIntelLoading(false);
+
+    // Brief pause on "Generating result" then reveal
+    await new Promise(r => setTimeout(r, 500));
+    setScanStage(8);
+    setLoading(false);
   }
 
   function handleSubmit(e: FormEvent) { e.preventDefault(); if (query.trim()) runCheck(query.trim()); }
@@ -184,21 +211,14 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Loading bar */}
-          <div style={{ height: 2, background: S.s3, borderRadius: 99, overflow: "hidden", maxWidth: 500, margin: "24px auto 0", opacity: loading ? 1 : 0, transition: "opacity 0.15s" }}>
-            <div style={{ height: "100%", width: "28%", background: `linear-gradient(90deg, ${S.acD}, ${S.ac})`, borderRadius: 99, animation: "loadSlide 0.6s ease-in-out infinite" }} />
-          </div>
+          {/* Scan Progress */}
+          {loading && scanStage > 0 && scanStage < 8 && <ScanProgress stage={scanStage} />}
 
           {/* ── RESULTS ── */}
           <div style={{ maxWidth: 500, margin: "28px auto 0", display: "flex", flexDirection: "column", gap: 10 }}>
-
-            {/* Direct Check Card */}
-            {check && <CheckCard data={check} />}
-
-            {/* AI Intelligence Card */}
-            {intelLoading && !intel && check && <IntelSkeleton />}
-            {intel && <IntelCard data={intel} />}
-            {!intelLoading && !intel && check && <IntelUnavailable />}
+            {scanStage === 8 && check && <CheckCard data={check} />}
+            {scanStage === 8 && intel && <IntelCard data={intel} />}
+            {scanStage === 8 && !intelLoading && !intel && check && <IntelUnavailable />}
           </div>
         </div>
       </section>
@@ -272,6 +292,90 @@ export default function HomePage() {
 /* ================================================================
    SUB-COMPONENTS
    ================================================================ */
+
+const SCAN_STAGES = [
+  { label: "Checking DNS", icon: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" },
+  { label: "Testing server response", icon: "M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8h16v10zm-6-1h4v-2h-4v2zm-8-3h10v-2H6v2zm0-3h10V9H6v2z" },
+  { label: "Measuring latency", icon: "M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z" },
+  { label: "Checking CDN edge", icon: "M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4s1.82-4 4.03-4h.33l.29-.71C7.6 7.32 9.68 6 12 6c3.04 0 5.5 2.46 5.5 5.5v.5H19c1.66 0 3 1.34 3 3s-1.34 3-3 3z" },
+  { label: "Scanning web intelligence", icon: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" },
+  { label: "Analyzing outage chatter", icon: "M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" },
+  { label: "Generating result", icon: "M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" },
+];
+
+function ScanProgress({ stage }: { stage: number }) {
+  return (
+    <div style={{ maxWidth: 500, margin: "28px auto 0", animation: "resIn 0.35s cubic-bezier(0.16,1,0.3,1)" }}>
+      <div style={{ borderRadius: 12, background: S.s1, border: `1px solid ${S.e1}`, overflow: "hidden" }}>
+        {/* Progress bar */}
+        <div style={{ height: 2, background: S.s3 }}>
+          <div style={{
+            height: "100%",
+            width: `${Math.round((stage / 7) * 100)}%`,
+            background: `linear-gradient(90deg, ${S.acD}, ${S.ac})`,
+            borderRadius: 99,
+            transition: "width 0.5s cubic-bezier(0.16,1,0.3,1)",
+          }} />
+        </div>
+
+        <div style={{ padding: "16px 18px" }}>
+          {SCAN_STAGES.map((s, i) => {
+            const idx = i + 1;
+            const isActive = idx === stage;
+            const isDone = idx < stage;
+            const isPending = idx > stage;
+
+            return (
+              <div key={i} style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "6px 0",
+                opacity: isPending ? 0.25 : isDone ? 0.5 : 1,
+                transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)",
+                transform: isActive ? "translateX(2px)" : "none",
+              }}>
+                {/* Icon */}
+                <div style={{
+                  width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: isActive ? S.acG : isDone ? "rgba(52,211,153,0.06)" : S.s2,
+                  border: `1px solid ${isActive ? "rgba(165,180,252,0.15)" : isDone ? "rgba(52,211,153,0.12)" : S.e0}`,
+                  transition: "all 0.3s",
+                }}>
+                  {isDone ? (
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill={S.up}><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                  ) : (
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill={isActive ? S.ac : S.t5}><path d={s.icon}/></svg>
+                  )}
+                </div>
+
+                {/* Label */}
+                <span style={{
+                  fontSize: 11.5, fontWeight: isActive ? 700 : 500, letterSpacing: "-0.01em",
+                  color: isActive ? S.t1 : isDone ? S.t3 : S.t4,
+                  transition: "all 0.3s",
+                }}>{s.label}</span>
+
+                {/* Active spinner */}
+                {isActive && (
+                  <span style={{
+                    width: 10, height: 10, borderRadius: "50%", marginLeft: "auto",
+                    border: `1.5px solid ${S.e1}`, borderTopColor: S.ac,
+                    animation: "scanSpin 0.6s linear infinite",
+                  }} />
+                )}
+
+                {/* Done dot */}
+                {isDone && (
+                  <span style={{ width: 4, height: 4, borderRadius: "50%", background: S.up, marginLeft: "auto", opacity: 0.6 }} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function CheckCard({ data: c }: { data: CheckResult }) {
   const up = c.reachable;
