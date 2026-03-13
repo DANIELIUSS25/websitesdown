@@ -26,12 +26,21 @@ export default function StatusPageClient({ domain, name, category, statusPageUrl
   const [check, setCheck] = useState<CheckResult | null>(initialCheck);
   const [intel, setIntel] = useState<IntelResult>(initialIntel);
   const [checking, setChecking] = useState(false);
+  const [intelLoading, setIntelLoading] = useState(false);
   const [query, setQuery] = useState("");
   useEffect(() => { recheck(); }, [domain]);
   async function recheck() {
     setChecking(true);
-    try { const r = await fetch(`/api/check?domain=${encodeURIComponent(domain)}`); if (r.ok) setCheck(await r.json()); } catch (err) { console.error("[status] Recheck failed:", err); }
+    setIntelLoading(true);
+    // Parallel: server check + AI intelligence
+    const checkPromise = fetch(`/api/check?domain=${encodeURIComponent(domain)}`).then(r => r.ok ? r.json() : null).catch(err => { console.error("[status] Recheck failed:", err); return null; });
+    const intelPromise = fetch(`/api/intelligence?domain=${encodeURIComponent(domain)}`).then(r => r.ok ? r.json() : null).catch(err => { console.error("[status] Intel fetch failed:", err); return null; });
+    const checkResult = await checkPromise;
+    if (checkResult) setCheck(checkResult);
     setChecking(false);
+    const intelResult = await intelPromise;
+    if (intelResult) setIntel(intelResult);
+    setIntelLoading(false);
   }
   function handleSearch(e: FormEvent) {
     e.preventDefault();
@@ -80,13 +89,35 @@ export default function StatusPageClient({ domain, name, category, statusPageUrl
             ))}
           </div>
         )}
+        {/* AI Analysis — loading skeleton */}
+        {intelLoading && !intel && (
+          <div style={{ borderRadius: 12, background: S.s1, border: `1px solid ${S.e1}`, overflow: "hidden", marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "12px 18px", borderBottom: `1px solid ${S.e0}`, fontSize: 11, fontWeight: 700, color: S.t3, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="m8 12 3 3 5-5" /></svg>
+              Scanning AI intelligence...
+            </div>
+            <div style={{ padding: 18 }}>
+              {[80, 55, 65].map((w, i) => <div key={i} style={{ height: 8, borderRadius: 3, background: S.s3, marginBottom: 8, width: `${w}%`, animation: `skelP 1s ${i * 0.1}s ease-in-out infinite` }} />)}
+            </div>
+          </div>
+        )}
+
+        {/* AI Analysis — results */}
         {intel && intel.confidence !== undefined && (
           <div style={{ borderRadius: 12, background: S.s1, border: `1px solid ${S.e1}`, overflow: "hidden", marginBottom: 20 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px", borderBottom: `1px solid ${S.e0}` }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: S.t3, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Live Outage Intelligence</span>
-              <span style={{ fontSize: 9, fontWeight: 600, color: S.t5, textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>via Perplexity AI</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: S.t3, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="m8 12 3 3 5-5" /></svg>
+                AI Analysis
+              </div>
+              <span style={{ fontSize: 9, fontWeight: 600, color: S.t5, textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>Perplexity</span>
             </div>
             <div style={{ padding: "14px 18px" }}>
+              {/* Confidence badge + issue type */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+                <ConfidenceBadge confidence={intel.confidence} />
+                {intel.issue_type && <span style={{ fontFamily: S.mono, fontSize: 10, color: S.t3, padding: "2px 7px", background: S.s2, border: `1px solid ${S.e0}`, borderRadius: 4 }}>{intel.issue_type}</span>}
+              </div>
               <div style={{ fontSize: 13, color: S.t2, lineHeight: 1.65 }}>{intel.summary}</div>
               {intel.signals?.length > 0 && <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 5, padding: 0, margin: "10px 0 0" }}>{intel.signals.map((s, i) => <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: 7, fontSize: 12, color: S.t2, lineHeight: 1.55 }}><span style={{ width: 3, height: 3, borderRadius: "50%", background: S.ac, marginTop: 6, flexShrink: 0 }} />{s}</li>)}</ul>}
             </div>
@@ -140,5 +171,18 @@ export default function StatusPageClient({ domain, name, category, statusPageUrl
         </div>
       </div>
     </div>
+  );
+}
+
+function ConfidenceBadge({ confidence }: { confidence: string }) {
+  const styles: Record<string, { color: string; bg: string; bd: string; label: string }> = {
+    none:   { color: S.t3, bg: S.s3, bd: S.e0, label: "No signals" },
+    low:    { color: S.t2, bg: "rgba(148,163,184,0.06)", bd: "rgba(148,163,184,0.1)", label: "Low confidence" },
+    medium: { color: S.warn, bg: "rgba(251,191,36,0.06)", bd: "rgba(251,191,36,0.12)", label: "Medium confidence" },
+    high:   { color: S.dn, bg: "rgba(248,113,113,0.06)", bd: "rgba(248,113,113,0.12)", label: "High confidence" },
+  };
+  const c = styles[confidence] || styles.none;
+  return (
+    <span style={{ display: "inline-flex", padding: "2px 8px", borderRadius: 5, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "0.04em", color: c.color, background: c.bg, border: `1px solid ${c.bd}` }}>{c.label}</span>
   );
 }

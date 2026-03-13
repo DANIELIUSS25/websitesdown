@@ -34,11 +34,12 @@ function buildPrompt(domain: string): string {
   return `You are an outage detection analyst. Investigate whether the website/service "${domain}" is currently experiencing any downtime, service degradation, or operational issues.
 
 Search the live web for recent signals including:
-- Outage reports from users on social media (Twitter/X, Reddit, etc.)
-- Status page updates from the service itself
-- News articles about current issues
-- Discussion threads about connectivity problems
-- Reports of login failures, API errors, slow performance, or regional outages
+- Spike in user outage reports on social media (Twitter/X, Reddit, DownDetector, etc.)
+- Login failures reported by users
+- API connection issues or errors
+- Recent status page updates or chatter from the service itself
+- News articles or social signals about current disruptions
+- Reports of slow performance, DNS issues, or regional outages
 
 Based on what you find, respond with ONLY a JSON object (no markdown, no backticks, no explanation) in this exact format:
 
