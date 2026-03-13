@@ -3,13 +3,8 @@ import type { NextRequest } from "next/server";
 
 const REDIRECT_MAP: Record<string, string> = {
   // /is-X-down â /status/domain
-  "is-discord-down": "discord.com",
-  "is-twitter-down": "x.com",
-  "is-instagram-down": "instagram.com",
-  "is-youtube-down": "youtube.com",
-  "is-chatgpt-down": "chat.openai.com",
-  "is-tiktok-down": "tiktok.com",
-  "is-reddit-down": "reddit.com",
+  // is-discord-down, is-twitter-down, is-youtube-down, is-chatgpt-down,
+  // is-instagram-down, is-reddit-down, is-tiktok-down are now dedicated SEO pages
   "is-twitch-down": "twitch.tv",
   "is-github-down": "github.com",
   "is-spotify-down": "spotify.com",
