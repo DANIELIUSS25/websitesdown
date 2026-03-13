@@ -1,19 +1,12 @@
 "use client";
 import { useState, useEffect, useRef, type FormEvent } from "react";
+import { tokens } from "@/lib/design-tokens";
 
 type CheckResult = { domain: string; reachable: boolean; status_code: number | null; latency_ms: number; error: string | null; checked_at: string };
 type IntelResult = { domain: string; summary: string; confidence: string; issue_type: string | null; signals: string[]; sources: { title: string; url: string }[] } | null;
 type RelatedService = { domain: string; name: string; iconKey: string };
 
-const S = {
-  void:"#060709",s1:"#0b0d12",s2:"#10131a",s3:"#161921",
-  e0:"rgba(255,255,255,0.03)",e1:"rgba(255,255,255,0.055)",e2:"rgba(255,255,255,0.09)",
-  t1:"#eef0f4",t2:"#9ba3b0",t3:"#6e7a8e",t4:"#3d4758",t5:"#252d3b",
-  ac:"#a5b4fc",acG:"rgba(165,180,252,0.06)",
-  up:"#34d399",upE:"rgba(52,211,153,0.18)",dn:"#f87171",dnE:"rgba(248,113,113,0.18)",warn:"#fbbf24",
-  mono:"var(--font-jetbrains),'JetBrains Mono',ui-monospace,monospace",
-  sans:"var(--font-manrope),'Manrope',system-ui,sans-serif",
-};
+const S = { ...tokens, void: tokens.bg };
 
 function timeAgo(iso: string): string {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -37,7 +30,7 @@ export default function StatusPageClient({ domain, name, category, statusPageUrl
   useEffect(() => { recheck(); }, [domain]);
   async function recheck() {
     setChecking(true);
-    try { const r = await fetch(`/api/check?domain=${encodeURIComponent(domain)}`); if (r.ok) setCheck(await r.json()); } catch {}
+    try { const r = await fetch(`/api/check?domain=${encodeURIComponent(domain)}`); if (r.ok) setCheck(await r.json()); } catch (err) { console.error("[status] Recheck failed:", err); }
     setChecking(false);
   }
   function handleSearch(e: FormEvent) {

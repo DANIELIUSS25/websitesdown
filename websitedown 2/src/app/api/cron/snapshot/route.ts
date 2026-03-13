@@ -9,8 +9,13 @@ export const runtime = "nodejs";
 export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    console.error("[cron/snapshot] CRON_SECRET env var is not configured");
+    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+  }
   const auth = req.headers.get("authorization");
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (auth !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -51,8 +51,8 @@ export async function POST(req: NextRequest) {
   try {
     // Dedup: check if already reported in last 5 min
     const existing = await db.query(
-      `SELECT 1 FROM outage_reports WHERE domain = $1 AND fingerprint = $2 AND created_at > NOW() - INTERVAL '${DEDUP_WINDOW_SEC} seconds' LIMIT 1`,
-      [d, fingerprint]
+      `SELECT 1 FROM outage_reports WHERE domain = $1 AND fingerprint = $2 AND created_at > NOW() - make_interval(secs => $3) LIMIT 1`,
+      [d, fingerprint, DEDUP_WINDOW_SEC]
     );
 
     if (existing.rows.length > 0) {
@@ -77,8 +77,11 @@ export async function POST(req: NextRequest) {
 }
 
 async function hashFP(input: string): Promise<string> {
-  const salt = process.env.FINGERPRINT_SALT || "wd-default-salt-change-me";
-  const data = new TextEncoder().encode(input + salt);
+  const salt = process.env.FINGERPRINT_SALT;
+  if (!salt) {
+    console.warn("[reports] FINGERPRINT_SALT env var is not set — using fallback. Set this in production!");
+  }
+  const data = new TextEncoder().encode(input + (salt || "wd-fallback-salt"));
   const hash = await crypto.subtle.digest("SHA-256", data);
   return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 16);
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, type FormEvent } from "react";
+import { tokens } from "@/lib/design-tokens";
 
 /* ================================================================
    BRAND ICONS — optically balanced SVG system
@@ -47,13 +48,7 @@ type IntelResult = { domain: string; summary: string; confidence: string; issue_
    Tailwind v4 utility classes don't cover cleanly)
    ================================================================ */
 
-const S = {
-  bg: "#060709", s1: "#0b0d12", s2: "#10131a", s3: "#161921", s4: "#1c2029",
-  e0: "rgba(255,255,255,0.03)", e1: "rgba(255,255,255,0.055)", e2: "rgba(255,255,255,0.09)",
-  t1: "#eef0f4", t2: "#b0b8c7", t3: "#6e7a8e", t4: "#3d4758", t5: "#252d3b",
-  ac: "#a5b4fc", acD: "#818cf8", acG: "rgba(165,180,252,0.06)", acGS: "rgba(165,180,252,0.12)",
-  up: "#34d399", dn: "#f87171",
-};
+const S = tokens;
 
 /* ================================================================
    COMPONENT
@@ -83,8 +78,8 @@ export default function HomePage() {
     setLoading(true); setCheck(null); setIntel(null); setIntelLoading(true);
 
     // Parallel: server check + AI intelligence
-    const checkPromise = fetch(`/api/check?domain=${encodeURIComponent(domain)}`).then(r => r.ok ? r.json() : null).catch(() => null);
-    const intelPromise = fetch(`/api/intelligence?domain=${encodeURIComponent(domain)}`).then(r => r.ok ? r.json() : null).catch(() => null);
+    const checkPromise = fetch(`/api/check?domain=${encodeURIComponent(domain)}`).then(r => r.ok ? r.json() : null).catch(err => { console.error("[check] API error:", err); return null; });
+    const intelPromise = fetch(`/api/intelligence?domain=${encodeURIComponent(domain)}`).then(r => r.ok ? r.json() : null).catch(err => { console.error("[intel] API error:", err); return null; });
 
     // Show check result as soon as it arrives
     const checkResult = await checkPromise;
