@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, type FormEvent } from "react";
+import { useState, useRef, useEffect, useCallback, type FormEvent } from "react";
 import { tokens } from "@/lib/design-tokens";
 
 /* ================================================================
@@ -137,6 +137,7 @@ export default function HomePage() {
           WebsiteDown<span style={{ color: S.t4, fontWeight: 600 }}>.com</span>
         </a>
         <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <a href="#outages" style={{ padding: "6px 12px", fontSize: 12.5, fontWeight: 600, color: S.t3, textDecoration: "none", borderRadius: 8 }}>Outages</a>
           <a href="#platforms" style={{ padding: "6px 12px", fontSize: 12.5, fontWeight: 600, color: S.t3, textDecoration: "none", borderRadius: 8 }}>Status</a>
           <a href="#pages" style={{ padding: "6px 12px", fontSize: 12.5, fontWeight: 600, color: S.t3, textDecoration: "none", borderRadius: 8 }}>Checks</a>
           <a href="/pricing" style={{ padding: "6px 12px", fontSize: 12.5, fontWeight: 600, color: S.t3, textDecoration: "none", borderRadius: 8 }}>Pricing</a>
@@ -225,6 +226,11 @@ export default function HomePage() {
       </section>
 
       {/* ── DIVIDER ── */}
+      <Divider />
+
+      {/* ── CURRENT INTERNET OUTAGES ── */}
+      <CurrentOutages />
+
       <Divider />
 
       {/* ── PLATFORMS ── */}
@@ -526,6 +532,203 @@ function StepCard({ step: s }: { step: { n: string; t: string; d: string } }) {
         <div style={{ fontSize: 12.5, color: S.t3, lineHeight: 1.6 }}>{s.d}</div>
       </div>
     </div>
+  );
+}
+
+/* ================================================================
+   CURRENT INTERNET OUTAGES — live outage feed
+   ================================================================ */
+
+type OutageService = {
+  service: string;
+  domain: string;
+  category: string;
+  status: "operational" | "degraded" | "down" | "unknown";
+  latency_ms: number | null;
+  reports_15m: number;
+  reports_1h: number;
+  baseline: number;
+  anomaly_level: string;
+  trend: "stable" | "rising" | "spike";
+};
+type OutageData = { services: OutageService[]; outages: OutageService[]; total: number; operational: number; issues: number; generated_at: string };
+
+function CurrentOutages() {
+  const [data, setData] = useState<OutageData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<string>("");
+
+  const fetchOutages = useCallback(async () => {
+    try {
+      const r = await fetch("/api/outages");
+      if (r.ok) {
+        const d: OutageData = await r.json();
+        setData(d);
+        setLastUpdate(new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }));
+      }
+    } catch { /* silent */ }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchOutages();
+    const iv = setInterval(fetchOutages, 30_000);
+    return () => clearInterval(iv);
+  }, [fetchOutages]);
+
+  if (loading) {
+    return (
+      <section style={{ padding: "76px 0" }}>
+        <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 20px" }}>
+          <h2 style={{ fontFamily: "var(--font-manrope)", fontSize: 21, fontWeight: 800, letterSpacing: "-0.04em", marginBottom: 32 }}>Current Internet Outages</h2>
+          <div style={{ display: "grid", gap: 6 }}>
+            {[1,2,3].map(i => (
+              <div key={i} style={{ height: 56, borderRadius: 10, background: S.s1, border: `1px solid ${S.e0}`, animation: `skelP 1s ${i * 0.1}s ease-in-out infinite` }} />
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (!data) return null;
+
+  // Combine: show outages first, then all services sorted by status
+  const statusOrder: Record<string, number> = { down: 0, degraded: 1, unknown: 2, operational: 3 };
+  const sorted = [...data.services].sort((a, b) => {
+    const aO = a.anomaly_level !== "normal" ? -1 : (statusOrder[a.status] ?? 3);
+    const bO = b.anomaly_level !== "normal" ? -1 : (statusOrder[b.status] ?? 3);
+    if (aO !== bO) return aO - bO;
+    return b.reports_1h - a.reports_1h;
+  });
+
+  const hasIssues = data.outages.length > 0;
+
+  return (
+    <section style={{ padding: "76px 0" }} id="outages">
+      <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 20px" }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 24 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <h2 style={{ fontFamily: "var(--font-manrope)", fontSize: 21, fontWeight: 800, letterSpacing: "-0.04em" }}>Current Internet Outages</h2>
+            {hasIssues && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: S.dn, background: S.dnBg, border: `1px solid ${S.dnBd}` }}>
+                {data.issues} issue{data.issues !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, fontWeight: 600, color: S.t4 }}>
+            {lastUpdate && <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 10 }}>{lastUpdate}</span>}
+            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ width: 4, height: 4, borderRadius: "50%", background: S.up, display: "inline-block", position: "relative" }}>
+                <span style={{ position: "absolute", inset: 0, borderRadius: "50%", background: S.up, animation: "livePulse 2s ease-in-out infinite" }} />
+              </span>
+              Live
+            </span>
+          </div>
+        </div>
+
+        {/* Summary bar */}
+        <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+          <SummaryChip label="Tracked" value={data.total} />
+          <SummaryChip label="Operational" value={data.operational} color={S.up} />
+          {data.issues > 0 && <SummaryChip label="Issues" value={data.issues} color={S.dn} />}
+        </div>
+
+        {/* Global status banner */}
+        {!hasIssues && (
+          <div style={{
+            borderRadius: 10, padding: "14px 18px", marginBottom: 16,
+            background: S.upBg, border: `1px solid ${S.upBd}`,
+            display: "flex", alignItems: "center", gap: 10,
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: S.up }} />
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: S.up }}>All monitored services are operational</span>
+          </div>
+        )}
+
+        {/* Service rows */}
+        <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${S.e1}` }}>
+          {sorted.slice(0, 12).map((svc, i) => (
+            <OutageRow key={svc.domain} svc={svc} isLast={i === Math.min(sorted.length, 12) - 1} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SummaryChip({ label, value, color }: { label: string; value: number; color?: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, background: S.s1, border: `1px solid ${S.e0}`, fontSize: 11, fontWeight: 600 }}>
+      <span style={{ color: S.t4 }}>{label}</span>
+      <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", color: color || S.t2 }}>{value}</span>
+    </div>
+  );
+}
+
+function OutageRow({ svc, isLast }: { svc: OutageService; isLast: boolean }) {
+  const [hov, setHov] = useState(false);
+
+  const statusColors: Record<string, { dot: string; label: string; text: string }> = {
+    operational: { dot: S.up, label: "Operational", text: S.up },
+    degraded: { dot: S.warn, label: "Degraded", text: S.warn },
+    down: { dot: S.dn, label: "Down", text: S.dn },
+    unknown: { dot: S.t4, label: "Unknown", text: S.t4 },
+  };
+  const st = statusColors[svc.status] || statusColors.unknown;
+
+  const trendLabels: Record<string, { text: string; color: string; icon: string }> = {
+    spike: { text: "major spike", color: S.dn, icon: "\u2191\u2191" },
+    rising: { text: "rising", color: S.warn, icon: "\u2191" },
+    stable: { text: "stable", color: S.t4, icon: "\u2192" },
+  };
+  const tr = trendLabels[svc.trend] || trendLabels.stable;
+
+  return (
+    <a
+      href={`/status/${svc.domain}`}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: "grid", gridTemplateColumns: "1fr auto auto auto", alignItems: "center", gap: 16,
+        padding: "12px 18px",
+        background: hov ? S.s2 : S.s1,
+        borderBottom: isLast ? "none" : `1px solid ${S.e0}`,
+        textDecoration: "none", color: S.t1,
+        transition: "background 0.15s",
+      }}
+    >
+      {/* Service name + domain */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+        <span style={{ width: 6, height: 6, borderRadius: "50%", background: st.dot, flexShrink: 0, position: "relative" }}>
+          {svc.status === "down" && <span style={{ position: "absolute", inset: -3, borderRadius: "50%", border: `1px solid ${S.dn}`, animation: "dotRing 2s ease-out infinite" }} />}
+        </span>
+        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: "-0.02em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{svc.service}</span>
+        <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 10, color: S.t4, whiteSpace: "nowrap" }}>{svc.domain}</span>
+      </div>
+
+      {/* Status */}
+      <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: st.text, whiteSpace: "nowrap" }}>{st.label}</span>
+
+      {/* Reports */}
+      {svc.reports_1h > 0 ? (
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 9px", borderRadius: 5, fontSize: 10, fontWeight: 600, fontFamily: "var(--font-jetbrains), var(--mono)", color: tr.color, background: svc.anomaly_level !== "normal" ? (svc.anomaly_level === "major" ? S.dnBg : S.warnBg) : S.s3, border: `1px solid ${svc.anomaly_level === "major" ? S.dnBd : svc.anomaly_level === "elevated" ? S.warnBd : S.e0}`, whiteSpace: "nowrap" }}>
+          <span>{svc.reports_1h} report{svc.reports_1h !== 1 ? "s" : ""}</span>
+          <span style={{ fontSize: 9 }}>{tr.icon}</span>
+        </span>
+      ) : (
+        <span style={{ fontSize: 10, color: S.t5, fontFamily: "var(--font-jetbrains), var(--mono)" }}>0 reports</span>
+      )}
+
+      {/* Trend label */}
+      {svc.anomaly_level !== "normal" && (
+        <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", padding: "2px 7px", borderRadius: 4, color: svc.anomaly_level === "major" ? S.dn : S.warn, background: svc.anomaly_level === "major" ? S.dnBg : S.warnBg, border: `1px solid ${svc.anomaly_level === "major" ? S.dnBd : S.warnBd}`, whiteSpace: "nowrap" }}>
+          {svc.anomaly_level === "major" ? "major spike" : "elevated"}
+        </span>
+      )}
+      {svc.anomaly_level === "normal" && <span />}
+    </a>
   );
 }
 
