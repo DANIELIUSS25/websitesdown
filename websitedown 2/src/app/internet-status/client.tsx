@@ -153,316 +153,40 @@ export default function InternetStatusClient() {
       {/* ââ Hero ââ */}
       <section style={{ textAlign: "center", padding: "48px 20px 40px", maxWidth: 700, margin: "0 auto", position: "relative" }}>
         <div style={{ position: "absolute", top: "-60%", left: "50%", transform: "translateX(-50%)", width: 800, height: 500, background: "radial-gradient(ellipse, rgba(165,180,252,0.03) 0%, transparent 60%)", pointerEvents: "none" }} />
-        <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.05em", lineHeight: 1.05, margin: "0 0 12px", position: "relative" }}>
-          Internet Status
-        </h1>
-        <p style={{ fontSize: 14, color: S.t3, fontWeight: 500, margin: 0, position: "relative" }}>
-          Real-time health of {stats.total_services} major internet services
-        </p>
-      </section>
+        <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.05em", lineHeight: 1.05, margin: "0 0 12px", position: "relative" }}>çFW&æWB7FGW0¢Âöà¢Ç7GÆS×·²föçE6¦S¢BÂ6öÆ÷#¢2çC2ÂföçEvVvC¢SÂÖ&vã¢Â÷6Föã¢'&VÆFfR"×Óà¢&VÂ×FÖRVÇFöb·7FG2çF÷FÅ÷6W'f6W7ÒÖ¦÷"çFW&æWB6W'f6W0¢Â÷à¢Â÷6V7Föãà ¢ÆFb7GÆS×·²ÖvGF¢ÂÖ&vã¢#WFò"ÂFFæs¢##C"×Óà ¢²ò¢)Y)Y)Y4T5Dôâ¢77FVÒVÇF÷fW'fWr)Y)Y)Y¢÷Ð¢ÆFb7GÆS×·°¢&÷&FW%&FW3¢BÂFFæs¢ÂÖ&vä&÷GFöÓ¢#À¢&6¶w&÷VæC¢ÆÄ6ÆV ¢ò&ÆæV"Öw&FVçB3VFVrÂ&v&S"Ã#ÃS2Ãã"Â&v&S"Ã#ÃS2ÃãB ¢¢&ÆæV"Öw&FVçB3VFVrÂ&v&#CÃ2Ã2Ãã"Â&v&#CÃ2Ã2ÃãB"À¢×Óà¢ÆFb7GÆS×·²&6¶w&÷VæC¢2ç3Â&÷&FW%&FW3¢2ÂFFæs¢###G"×Óà¢ÆFb7GÆS×·²F7Æ¢&fÆW"ÂÆväFV×3¢&6VçFW""Â§W7Fg6öçFVçC¢'76RÖ&WGvVVâ"ÂÖ&vä&÷GFöÓ¢×Óà¢ÆFb7GÆS×·²F7Æ¢&fÆW"ÂÆväFV×3¢&6VçFW""Âv¢×Óà¢Ç7â7GÆS×·²föçE6¦S¢b×Óç¶ÆÄ6ÆV"ò.)ÈR"¢.)ªûò'ÓÂ÷7ãà¢Æ"7GÆS×·²föçE6¦S¢bÂföçEvVvC¢ÂÆWGFW%76æs¢"Óã6VÒ"ÂÖ&vã¢×Óå77FVÒVÇF÷fW'fWsÂö#à¢ÂöFcà¢Ç7â7GÆS×·²föçDfÖÇ¢2æÖöæòÂföçE6¦S¢Â6öÆ÷#¢2çCB×Óà¢¶Æ7E&Vg&W6òFÖTvòÆ7E&Vg&W6çFô4õ7G&ær¢.(	B'Ð¢Â÷7ãà¢ÂöFcà ¢ÆFb7GÆS×·²F7Æ¢&w&B"Âw&EFV×ÆFT6öÇVÖç3¢'&WVBRÂg""Âv¢×Óà¢µ°¢²c¢7FG2çF÷FÅ÷6W'f6W2ÂÃ¢%G&6¶VB"Â3¢2çCÂ6öã¢/	ù:"ÒÀ¢²c¢7FG2æ÷W&FöæÂÂÃ¢$÷W&FöæÂ"Â3¢2çWÂ6öã¢.)xò"ÒÀ¢²c¢7FG2æFVw&FVBÂÃ¢$FVw&FVB"Â3¢2çv&âÂ6öã¢.)k""ÒÀ¢²c¢7FG2æF÷vâÂÃ¢$F÷vâ"Â3¢2æFâÂ6öã¢.)ÉR"ÒÀ¢²c¢G·WFÖU7GÒVÂÃ¢$vÆö&ÂWFÖR"Â3¢ÆÄ6ÆV"ò2çW¢2çv&âÂ6öã¢.)x"ÒÀ¢ÒæÖ²bÂÂÂ2Â6öâÒÓâ¢ÆFb¶W×¶ÇÒ7GÆS×·°¢&6¶w&÷VæC¢2ç3"Â&÷&FW%&FW3¢ÂFFæs¢#Gg"ÂFWDÆvã¢&6VçFW""À¢&÷&FW#¢6öÆBGµ2æSÖÀ¢×Óà¢ÆFb7GÆS×·²föçDfÖÇ¢2æÖöæòÂföçE6¦S¢#"ÂföçEvVvC¢sÂ6öÆ÷#¢2ÂÆæTVvC¢×Óç·gÓÂöFcà¢ÆFb7GÆS×·²föçE6¦S¢ÂföçEvVvC¢sÂ6öÆ÷#¢2çCBÂFWEG&ç6f÷&Ó¢'WW&66R"ÂÆWGFW%76æs¢#ãVÒ"ÂÖ&våF÷¢R×Óç¶ÇÓÂöFcà¢ÂöFcà¢Ð¢ÂöFcà¢ÂöFcà¢ÂöFcà ¢²ò¢)Y)Y)Y4T5Dôâ#¢7W'&VçB÷WFvW2)Y)Y)Y¢÷Ð¢Ç6V7Föâ7GÆS×·²Ö&vä&÷GFöÓ¢#×Óà¢ÆFb7GÆS×·²F7Æ¢&fÆW"ÂÆväFV×3¢&6VçFW""Âv¢ÂÖ&vä&÷GFöÓ¢B×Óà¢Ç7â7GÆS×·²föçE6¦S¢B×Óï	ùJSÂ÷7ãà¢Æ"7GÆS×·²föçE6¦S¢bÂföçEvVvC¢ÂÆWGFW%76æs¢"Óã6VÒ"ÂÖ&vã¢×Óä7W'&VçB÷WFvW3Âö#à¢¶FFòæ÷WFvW2bbFFæ÷WFvW2æÆVæwFâbb¢Ç7â7GÆS×·°¢föçDfÖÇ¢2æÖöæòÂföçE6¦S¢ÂföçEvVvC¢sÂ6öÆ÷#¢2æFâÀ¢&6¶w&÷VæC¢2æFä&rÂ&÷&FW#¢6öÆBGµ2æFä&GÖÀ¢FFæs¢#"Â&÷&FW%&FW3¢À¢×Óç¶FFæ÷WFvW2æÆVæwFÓÂ÷7ãà¢Ð¢ÂöFcà ¢²FFòæ÷WFvW2ÇÂFFæ÷WFvW2æÆVæwFÓÓÒò¢ÆFb7GÆS×·°¢&÷&FW%&FW3¢"ÂFFæs¢###G"À¢&6¶w&÷VæC¢2çW&rÂ&÷&FW#¢6öÆBGµ2çW&GÖÀ¢F7Æ¢&fÆW"ÂÆväFV×3¢&6VçFW""Âv¢À¢×Óà¢Å7FGW4F÷B7FGW3Ò&÷W&FöæÂ"6¦S×³Òóà¢Ç7â7GÆS×·²föçE6¦S¢2ÂföçEvVvC¢cÂ6öÆ÷#¢2çW×Óäæò7FfR÷WFvW2FWFV7FVCÂ÷7ãà¢Ç7â7GÆS×·²föçDfÖÇ¢2æÖöæòÂföçE6¦S¢Â6öÆ÷#¢2çCBÂÖ&väÆVgC¢&WFò"×ÓäÆÂ·7FG2æ÷W&FöæÇÒ6W'f6W2÷W&FöæÃÂ÷7ãà¢ÂöFcà¢¢¢ÆFb7GÆS×·²F7Æ¢&fÆW"ÂfÆWF&V7Föã¢&6öÇVÖâ"Âv¢b×Óà¢¶FFæ÷WFvW2æÖ7f2Óâ¢Æ¶W×·7f2æFöÖçÒ&Vc×¶÷7FGW2òG·7f2æFöÖçÖÒ7GÆS×·°¢FWDFV6÷&Föã¢&æöæR"Â6öÆ÷#¢2çCÀ¢&÷&FW%&FW3¢"ÂFFæs¢Â&6¶w&÷VæC¢2æFä&BÀ¢×Óà¢ÆFb7GÆS×·°¢&6¶w&÷VæC¢2ç3Â&÷&FW%&FW3¢ÂFFæs¢#g#"À¢F7Æ¢&fÆW"ÂÆväFV×3¢&6VçFW""Âv¢BÀ¢×Óà¢Å7FGW4F÷B7FGW3Ò&F÷vâ"6¦S×³Òóà¢ÆFb7GÆS×·²fÆW¢×Óà¢ÆFb7GÆS×·²föçE6¦S¢BÂföçEvVvC¢s×Óç¶vWDæÖR7f2æFöÖâÓÂöFcà¢ÆFb7GÆS×·²föçDfÖÇ¢2æÖöæòÂföçE6¦S¢Â6öÆ÷#¢2çCB×Óç·7f2æFöÖçÓÂöFcà¢ÂöFcà¢Ä&FvRÆWfVÃ×·7f2ææöÖÇÒóà¢·7f2ç&W÷'G5óâbb¢Ç7â7GÆS×·²föçDfÖÇ¢2æÖöæòÂföçE6¦S¢Â6öÆ÷#¢2æFâÂföçEvVvC¢c×Óà¢·7f2ç&W÷'G5óÒ&W÷'G·7f2ç&W÷'G5óÓÒò'2"¢"'Òö ¢Â÷7ãà¢Ð¢Ç7â7GÆS×·²föçDfÖÇ¢2æÖöæòÂföçE6¦S¢Â6öÆ÷#¢2æFâÂföçEvVvC¢s×ÓäDõtãÂ÷7ãà¢Ç7frvGFÒ#""VvCÒ#""fWt&÷Ò##B#B"fÆÃÒ&æöæR"7G&ö¶S×µ2çCGÒ7G&ö¶UvGFÒ#"#ãÇFCÒ$ÓÃbÓbÓbÓb"óãÂ÷7fsà¢ÂöFcà¢Âöà¢Ð¢ÂöFcà¢Ð¢Â÷6V7Föãà ¢²ò¢)Y)Y)Y4T5Dôâ3¢G&VæFær6W'f6W2)Y)Y)Y¢÷Ð¢¶FFòçG&VæFærbbFFçG&VæFæræÆVæwFâbb¢Ç6V7Föâ7GÆS×·²Ö&vä&÷GFöÓ¢#×Óà¢ÆFb7GÆS×·²F7Æ¢&fÆW"ÂÆväFV×3¢&6VçFW""Âv¢ÂÖ&vä&÷GFöÓ¢B×Óà¢Ç7â7GÆS×·²föçE6¦S¢B×Óï	ù8£Â÷7ãà¢Æ"7GÆS×·²föçE6¦S¢bÂföçEvVvC¢ÂÆWGFW%76æs¢"Óã6VÒ"ÂÖ&vã¢×ÓåG&VæFær6W'f6W3Âö#à¢Ç7â7GÆS×·²föçDfÖÇ¢2æÖöæòÂföçE6¦S¢Â6öÆ÷#¢2çCB×Óå6W'f6W2vFVÆWfFVBW6W"&W÷'G3Â÷7ãà¢ÂöFcà ¢ÆFb7GÆS×·²F7Æ¢&fÆW"ÂfÆWF&V7Föã¢&6öÇVÖâ"Âv¢B×Óà¢¶FFçG&VæFæræÖÓâ°¢6öç7B7&´6öÆ÷"ÒææöÖÇÓÓÒ&Ö¦÷""ò2æFâ¢ææöÖÇÓÓÒ&VÆWfFVB"ò2çv&â¢2æ3°¢&WGW&â¢Æ¶W×·æFöÖçÒ&Vc×¶÷7FGW0ËÉíÀ¹½µ¥¹õôÍÑå±õíì(ÑáÑ½ÉÑ¥½¸è¹½¹°½±½ÈèL¹ÐÄ°(½ÉÉI¥ÕÌèÄÈ°Á¥¹èÄ°(­É½Õ¹èÀ¹¹½µ±äôôôµ©½ÈüÉ ÈÐà°ÄÄÌ°ÄÄÌ°À¸Àà¤(èÀ¹¹½µ±äôôô±ÙÑüÉ ÈÔÄ°ÄäÄ°ÌØ°À¸ÀØ¤(èL¹Ä°(õôø(ñ¥ØÍÑå±õíì(­É½Õ¹èL¹ÌÄ°½ÉÉI¥ÕÌèÄÄ°Á¥¹èÄÉÁàÄáÁà°(¥ÍÁ±äè±à°±¥¹%ÑµÌè¹ÑÈ°ÀèÄÈ°(õôø(ñMÑÑÕÍ½ÐÍÑÑÕÌõíÀ¹¹½µ±äôôôµ©½Èü½Ý¸èÀ¹¹½µ±äôôô±ÙÑüÉè½ÁÉÑ¥½¹°ô¼ø(ñ¥ØÍÑå±õíì±àèÄ°µ¥¹]¥Ñ èÀõôø(ñÍÁ¸ÍÑå±õíì½¹ÑM¥éèÄÌ°½¹Ñ]¥¡ÐèÜÀÀõôùíÑ9µ¡À¹½µ¥¸¥ôð½ÍÁ¸ø(ñÍÁ¸ÍÑå±õíì½¹Ñµ¥±äèL¹µ½¹¼°½¹ÑM¥éèÄÀ°½±½ÈèL¹ÐÐ°µÉ¥¹1ÐèàõôùíÀ¹½µ¥¹ôð½ÍÁ¸ø(ð½¥Øø(ñ	±Ù°õíÀ¹¹½µ±åô½µÁÐ¼ø(ñÍÁ¸ÍÑå±õíì½¹Ñµ¥±äèL¹µ½¹¼°½¹ÑM¥éèÄÀ°½±½ÈèL¹ÐÌõôø(íÀ¹ÉÁ½ÉÑÍ|Å¡ô½¡È(ð½ÍÁ¸ø(íÀ¹ÍÁ¥­}ÉÑ¥¼øÄ (ñÍÁ¸ÍÑå±õíì½¹Ñµ¥±äèL¹µ½¹¼°½¹ÑM¥éèä°½±½ÈèÀ¹¹½µ±äôôôµ©½ÈüL¹¸èL¹ÝÉ¸°½¹Ñ]¥¡ÐèØÀÀõôø(íÀ¹ÍÁ¥­}ÉÑ¥½õà(ð½ÍÁ¸ø(¥ô(ñMÁÉ¬ÑõíÀ¹ÍÁÉ­±¥¹ô½±½ÈõíÍÁÉ­
+½±½Éô¼ø(ñÍÙÝ¥Ñ ôÄÀ¡¥¡ÐôÄÀÙ¥Ý	½àôÀÀÈÐÈÐ¥±°ô¹½¹ÍÑÉ½­õíL¹ÐÑôÍÑÉ½­]¥Ñ ôÈøñÁÑ ô4äÄá°Ø´Ø´Ø´Ø¼øð½ÍÙø(ð½¥Øø(ð½ø(¤ì(ô¥ô(ð½¥Øø(ð½ÍÑ¥½¸ø(¥ô((ì¼¨VCVCV@M
+Q%=8Ðè±°A±Ñ½ÉµÌVCVCV@¨½ô(ñÍÑ¥½¸ÍÑå±õíìµÉ¥¹	½ÑÑ½´èÈàõôø(ñ¥ØÍÑå±õíì¥ÍÁ±äè±à°±¥¹%ÑµÌè¹ÑÈ°Àèà°µÉ¥¹	½ÑÑ½´èÄÐõôø(ñÍÁ¸ÍÑå±õíì½¹ÑM¥éèÄÐõôûÂ~2@ð½ÍÁ¸ø(ñ ÈÍÑå±õíì½¹ÐÚ^NMÛÙZYÚ]\ÜXÚ[ÎLÙ[HX\Ú[_O[]Ü\ÏÚÜ[Ý[O^ÞÈÛ[Z[NË[ÛËÛÚ^NLÛÛÜË\ÛÙZYÚ
+_O]OÜÜ[Ù]ËÊÜÝ\HØ]YÛÜH
+ßBÊ
 
-      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "0 20px 48px" }}>
-
-        {/* âââ SECTION 1: System Health Overview âââ */}
-        <div style={{
-          borderRadius: 14, padding: 1, marginBottom: 28,
-          background: allClear
-            ? "linear-gradient(135deg, rgba(52,211,153,0.12), rgba(52,211,153,0.04))"
-            : "linear-gradient(135deg, rgba(248,113,113,0.12), rgba(248,113,113,0.04))",
-        }}>
-          <div style={{ background: S.s1, borderRadius: 13, padding: "20px 24px" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 16 }}>{allClear ? "â" : "â ï¸"}</span>
-                <h2 style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.03em", margin: 0 }}>System Health Overview</h2>
-              </div>
-              <span style={{ fontFamily: S.mono, fontSize: 10, color: S.t4 }}>
-                {lastRefresh ? timeAgo(lastRefresh.toISOString()) : "â"}
-              </span>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10 }}>
-              {[
-                { v: stats.total_services, l: "Tracked", c: S.t1, icon: "ð¡" },
-                { v: stats.operational, l: "Operational", c: S.up, icon: "â" },
-                { v: stats.degraded, l: "Degraded", c: S.warn, icon: "â²" },
-                { v: stats.down, l: "Down", c: S.dn, icon: "â" },
-                { v: `${uptimePct}%`, l: "Global Uptime", c: allClear ? S.up : S.warn, icon: "â" },
-              ].map(({ v, l, c, icon }) => (
-                <div key={l} style={{
-                  background: S.s2, borderRadius: 10, padding: "14px 16px", textAlign: "center",
-                  border: `1px solid ${S.e0}`,
-                }}>
-                  <div style={{ fontFamily: S.mono, fontSize: 22, fontWeight: 700, color: c, lineHeight: 1 }}>{v}</div>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: S.t4, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 5 }}>{l}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* âââ SECTION 2: Current Outages âââ */}
-        <section style={{ marginBottom: 28 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-            <span style={{ fontSize: 14 }}>ð¥</span>
-            <h2 style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.03em", margin: 0 }}>Current Outages</h2>
-            {data?.outages && data.outages.length > 0 && (
-              <span style={{
-                fontFamily: S.mono, fontSize: 10, fontWeight: 700, color: S.dn,
-                background: S.dnBg, border: `1px solid ${S.dnBd}`,
-                padding: "1px 8px", borderRadius: 10,
-              }}>{data.outages.length}</span>
-            )}
-          </div>
-
-          {(!data?.outages || data.outages.length === 0) ? (
-            <div style={{
-              borderRadius: 12, padding: "20px 24px",
-              background: S.upBg, border: `1px solid ${S.upBd}`,
-              display: "flex", alignItems: "center", gap: 10,
-            }}>
-              <StatusDot status="operational" size={8} />
-              <span style={{ fontSize: 13, fontWeight: 600, color: S.up }}>No active outages detected</span>
-              <span style={{ fontFamily: S.mono, fontSize: 10, color: S.t4, marginLeft: "auto" }}>All {stats.operational} services operational</span>
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {data.outages.map(svc => (
-                <a key={svc.domain} href={`/status/${svc.domain}`} style={{
-                  textDecoration: "none", color: S.t1,
-                  borderRadius: 12, padding: 1, background: S.dnBd,
-                }}>
-                  <div style={{
-                    background: S.s1, borderRadius: 11, padding: "16px 20px",
-                    display: "flex", alignItems: "center", gap: 14,
-                  }}>
-                    <StatusDot status="down" size={10} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 14, fontWeight: 700 }}>{getName(svc.domain)}</div>
-                      <div style={{ fontFamily: S.mono, fontSize: 10, color: S.t4 }}>{svc.domain}</div>
-                    </div>
-                    <Badge level={svc.anomaly} />
-                    {svc.reports_1h > 0 && (
-                      <span style={{ fontFamily: S.mono, fontSize: 11, color: S.dn, fontWeight: 600 }}>
-                        {svc.reports_1h} report{svc.reports_1h !== 1 ? "s" : ""}/hr
-                      </span>
-                    )}
-                    <span style={{ fontFamily: S.mono, fontSize: 11, color: S.dn, fontWeight: 700 }}>DOWN</span>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={S.t4} strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
-                  </div>
-                </a>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* âââ SECTION 3: Trending Services âââ */}
-        {data?.trending && data.trending.length > 0 && (
-          <section style={{ marginBottom: 28 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-              <span style={{ fontSize: 14 }}>ð</span>
-              <h2 style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.03em", margin: 0 }}>Trending Services</h2>
-              <span style={{ fontFamily: S.mono, fontSize: 10, color: S.t4 }}>Services with elevated user reports</span>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {data.trending.map(p => {
-                const sparkColor = p.anomaly === "major" ? S.dn : p.anomaly === "elevated" ? S.warn : S.ac;
-                return (
-                  <a key={p.domain} href={`/status/${p.domain}`} style={{
-                    textDecoration: "none", color: S.t1,
-                    borderRadius: 12, padding: 1,
-                    background: p.anomaly === "major" ? "rgba(248,113,113,0.08)"
-                      : p.anomaly === "elevated" ? "rgba(251,191,36,0.06)"
-                      : S.e1,
-                  }}>
-                    <div style={{
-                      background: S.s1, borderRadius: 11, padding: "12px 18px",
-                      display: "flex", alignItems: "center", gap: 12,
-                    }}>
-                      <StatusDot status={p.anomaly === "major" ? "down" : p.anomaly === "elevated" ? "degraded" : "operational"} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700 }}>{getName(p.domain)}</span>
-                        <span style={{ fontFamily: S.mono, fontSize: 10, color: S.t4, marginLeft: 8 }}>{p.domain}</span>
-                      </div>
-                      <Badge level={p.anomaly} compact />
-                      <span style={{ fontFamily: S.mono, fontSize: 10, color: S.t3 }}>
-                        {p.reports_1h}/hr
-                      </span>
-                      {p.spike_ratio > 1 && (
-                        <span style={{ fontFamily: S.mono, fontSize: 9, color: p.anomaly === "major" ? S.dn : S.warn, fontWeight: 600 }}>
-                          {p.spike_ratio}x
-                        </span>
-                      )}
-                      <Spark data={p.sparkline} color={sparkColor} />
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={S.t4} strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
-                    </div>
-                  </a>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
-        {/* âââ SECTION 4: All Platforms âââ */}
-        <section style={{ marginBottom: 28 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-            <span style={{ fontSize: 14 }}>ð</span>
-            <h2 style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.03em", margin: 0 }}>All Platforms</h2>
-            <span style={{ fontFamily: S.mono, fontSize: 10, color: S.up, fontWeight: 600 }}>Live</span>
-          </div>
-
-          {/* Group by category */}
-          {(() => {
-            const grouped: Record<string, ServiceStatus[]> = {};
-            data?.services?.forEach(s => {
-              const cat = s.category || "Other";
-              if (!grouped[cat]) grouped[cat] = [];
-              grouped[cat].push(s);
-            });
-            const cats = [...new Set([...CATEGORY_ORDER, ...Object.keys(grouped)])].filter(c => grouped[c]?.length);
-
-            return cats.map(cat => (
-              <div key={cat} style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: S.t4, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8, padding: "0 4px" }}>
-                  {cat}
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 6 }}>
-                  {grouped[cat]?.map(svc => {
-                    const pulse = data?.pulse?.find(p => p.domain === svc.domain);
-                    return (
-                      <a key={svc.domain} href={`/status/${svc.domain}`} style={{
-                        textDecoration: "none", color: S.t1,
-                        borderRadius: 10, padding: 1, background: S.e1,
-                      }}>
-                        <div style={{
-                          background: S.s1, borderRadius: 9, padding: "12px 14px",
-                          display: "flex", alignItems: "center", gap: 10,
-                        }}>
-                          <StatusDot status={svc.status} />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 12, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                              {getName(svc.domain)}
-                            </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
-                              <span style={{ fontFamily: S.mono, fontSize: 9, color: S.t4 }}>
-                                {svc.latency_ms ? `${svc.latency_ms}ms` : svc.domain}
-                              </span>
-                              {pulse && pulse.reports_1h > 0 && (
-                                <span style={{ fontFamily: S.mono, fontSize: 8, color: pulse.anomaly === "major" ? S.dn : pulse.anomaly === "elevated" ? S.warn : S.t4 }}>
-                                  {pulse.reports_1h} reports
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <span style={{
-                            fontSize: 8, fontWeight: 700, textTransform: "uppercase",
-                            color: svc.status === "operational" ? S.up : svc.status === "down" ? S.dn : svc.status === "degraded" ? S.warn : S.t4,
-                          }}>
-                            {svc.status === "operational" ? "UP" : svc.status === "down" ? "DOWN" : svc.status === "degraded" ? "SLOW" : "â"}
-                          </span>
-                        </div>
-                      </a>
-                    );
-                  })}
-                </div>
-              </div>
-            ));
-          })()}
-        </section>
-
-        {/* âââ SECTION 5: Latest Incident Reports âââ */}
-        <section style={{ marginBottom: 28 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-            <span style={{ fontSize: 14 }}>ð</span>
-            <h2 style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.03em", margin: 0 }}>Latest Incident Reports</h2>
-          </div>
-
-          <div style={{ borderRadius: 12, padding: 1, background: S.e1 }}>
-            <div style={{ background: S.s1, borderRadius: 11, overflow: "hidden" }}>
-              {/* Header */}
-              <div style={{
-                display: "grid", gridTemplateColumns: "1fr 100px 80px 80px",
-                padding: "10px 18px", borderBottom: `1px solid ${S.e0}`,
-                fontFamily: S.mono, fontSize: 9, fontWeight: 700, color: S.t4,
-                textTransform: "uppercase", letterSpacing: "0.08em",
-              }}>
-                <span>Service</span>
-                <span style={{ textAlign: "right" }}>Reports/hr</span>
-                <span style={{ textAlign: "right" }}>Status</span>
-                <span style={{ textAlign: "right" }}>Trend</span>
-              </div>
-
-              {/* Rows */}
-              {data?.pulse?.filter(p => p.reports_24h > 0).slice(0, 12).map(p => (
-                <a key={p.domain} href={`/status/${p.domain}`} style={{
-                  textDecoration: "none", color: S.t1,
-                  display: "grid", gridTemplateColumns: "1fr 100px 80px 80px",
-                  padding: "10px 18px", alignItems: "center",
-                  borderBottom: `1px solid ${S.e0}`,
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <StatusDot status={p.anomaly === "major" ? "down" : p.anomaly === "elevated" ? "degraded" : "operational"} size={6} />
-                    <span style={{ fontSize: 12, fontWeight: 600 }}>{getName(p.domain)}</span>
-                    <span style={{ fontFamily: S.mono, fontSize: 9, color: S.t4 }}>{p.domain}</span>
-                  </div>
-                  <span style={{ fontFamily: S.mono, fontSize: 11, color: p.reports_1h > 50 ? S.dn : p.reports_1h > 10 ? S.warn : S.t2, textAlign: "right", fontWeight: 600 }}>
-                    {p.reports_1h}
-                  </span>
-                  <span style={{ textAlign: "right" }}><Badge level={p.anomaly} compact /></span>
-                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                    <Spark data={p.sparkline} color={p.anomaly === "major" ? S.dn : p.anomaly === "elevated" ? S.warn : S.ac} w={50} h={16} />
-                  </div>
-                </a>
-              ))}
-
-              {/* Empty state */}
-              {(!data?.pulse || data.pulse.filter(p => p.reports_24h > 0).length === 0) && (
-                <div style={{ padding: "24px 18\x", textAlign: "center", fontFamily: S.mono, fontSize: 11, color: S.t5 }}>
-                  No incident reports in the last 24 hours
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* âââ SECTION 6: Quick check CTA âââ */}
-        <section style={{ marginBottom: 28 }}>
-          <div style={{
-            borderRadius: 14, padding: 1,
-            background: `linear-gradient(135deg, ${S.ac}15, ${S.acD}15)`,
-          }}>
-            <div style={{
-              background: S.s1, borderRadius: 13, padding: "28px 32px",
-              display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16,
-            }}>
-              <div>
-                <h3 style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.03em", margin: "0 0 4px" }}>Check any website</h3>
-                <p style={{ fontSize: 12, color: S.t3, margin: 0 }}>Real-time server check + AI outage intelligence in seconds</p>
-              </div>
-              <a href="/" style={{
-                padding: "10px 24px", fontSize: 13, fontWeight: 700, color: S.void,
-                background: S.t1, borderRadius: 8, textDecoration: "none",
-              }}>Check Now â</a>
-            </div>
-          </div>
-        </section>
-
-      </div>
-
-      {/* ââ Footer ââ */}
-      <footer style={{ borderTop: `1px solid ${S.e0}`, padding: "24px 0 28px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 1080, margin: "0 auto", padding: "0 20px" }}>
-          <div style={{ fontSize: 12, color: S.t4 }}>
-            <strong style={{ color: S.t3, fontWeight: 700 }}>WebsiteDown.com</strong> Â· Real-time internet infrastructure monitoring
-          </div>
-          <div style={{ display: "flex", gap: 18 }}>
-            {["About", "API", "Privacy"].map(l => (
-              <a key={l} href={`/${l.toLowerCase()}`} style={{ fontSize: 11, fontWeight: 600, color: S.t4, textDecoration: "none" }}>{l}</a>
-            ))}
-          </div>
-        </div>
-      </footer>
-    </div>
-  );
-}
+HOÂÛÛÝÜÝ\YXÛÜÝ[ËÙ\XÙTÝ]\Ö×OHßNÂ]OËÙ\XÙ\ÏËÜXXÚ
+ÈOÂÛÛÝØ]HËØ]YÛÜHÝ\ÂY
+YÜÝ\YØØ]JHÜÝ\YØØ]HH×NÂÜÝ\YØØ]K\Ú
+ÊNÂJNÂÛÛÝØ]ÈHË]ÈÙ]
+ËÐUQÓÔWÓÔTØXÝÙ^\ÊÜÝ\Y
+WJWK[\ÈOÜÝ\YØ×OË[Ý
+NÂ]\Ø]ËX\
+Ø]O
+]Ù^O^ØØ]HÝ[O^ÞÈX\Ú[ÝÛNM_O]Ý[O^ÞÈÛÚ^NLÛÙZYÚ
+ÌÛÛÜË
+^[ÙÜN\\Ø\ÙH]\ÜXÚ[Î[HX\Ú[ÝÛNY[Î
+_OØØ]BÙ]]Ý[O^ÞÈ\Ü^NÜYÜY[\]PÛÛ[[Î\X]
+]]ËY[Z[X^
+YJHØ\
+_OÙÜÝ\YØØ]OËX\
+ÝÈOÂÛÛÝ[ÙHH]OË[ÙOË[
+OÛXZ[OOHÝËÛXZ[NÂ]\
+HÙ^O^ÜÝËÛXZ[HY^ØÜÝ]\ËÉÜÝËÛXZ[XHÝ[O^ÞÂ^XÛÜ][ÛÛHÛÛÜËKÜ\Y]\ÎLY[ÎKXÚÙÜÝ[ËLK_O]Ý[O^ÞÂXÚÙÜÝ[ËÌKÜ\Y]\ÎKY[ÎLM\Ü^N^[YÛ][\ÎÙ[\Ø\L_OÝ]\ÑÝÝ]\Ï^ÜÝËÝ]\ßHÏ]Ý[O^ÞÈ^KZ[ÚY_O]Ý[O^ÞÈÛÚ^NLÛÙZYÚ
+ÌÚ]TÜXÙNÝÜ\Ý\ÝÎY[^Ý\ÝÎ[\Ú\È_OÙÙ][YJÝËÛXZ[_BÙ]]Ý[O^ÞÈ\Ü^N^[YÛ][\ÎÙ[\0ÀèØ°µÉ¥¹Q½ÀèÈõôø(ñÍÁ¸ÍÑå±õíì½¹Ñµ¥±äèL¹µ½¹¼°½¹ÑM¥éèä°½±½ÈèL¹ÐÐõôø(íÍÙ¹±Ñ¹å}µÌüíÍÙ¹±Ñ¹å}µÍõµÍèÍÙ¹½µ¥¹ô(ð½ÍÁ¸ø(íÁÕ±ÍÁÕ±Í¹ÉÁ½ÉÑÍ|Å øÀ (ñÍÁ¸ÍÑå±õíì½¹Ñµ¥±äèL¹µ½¹¼°½¹ÑM¥éèà°½±½ÈèÁÕ±Í¹¹½µ±äôôôµ©½ÈüL¹¸èÁÕ±Í¹¹½µ±äôôô±ÙÑüL¹ÝÉ¸èL¹ÐÐõôø(íÁÕ±Í¹ÉÁ½ÉÑÍ|Å¡ôÉÁ½ÉÑÌ(ð½ÍÁ¸ø(¥ô(ð½¥Øø(ð½¥Øø(ñÍÁ¸ÍÑå±õíì(½¹ÑM¥éèà°½¹Ñ]¥¡ÐèÜÀÀ°ÑáÑQÉ¹Í½É´èÕÁÁÉÍ°(½±½ÈèÍÙ¹ÍÑÑÕÌôôô½ÁÉÑ¥½¹°üL¹ÕÀèÍÙ¹ÍÑÑÕÌôôô½Ý¸üL¹¸èÍÙ¹ÍÑÑÕÌôôôÉüL¹ÝÉ¸èL¹ÐÐ°(õôø(íÍÙ¹ÍÑÑÕÌôôô½ÁÉÑ¥½¹°üU@èÍÙ¹ÍÑÑÕÌôôô½Ý¸ü=]8èÍÙ¹ÍÑÑÕÌôôôÉüM1=\èPô(ð½ÍÁ¸ø(ð½¥Øø(ð½ø(¤ì(ô¥ô(ð½¥Øø(ð½¥Øø(¤¤ì(ô¤ ¥ô(ð½ÍÑ¥½¸ø((ì¼¨VCVCV@M
+Q%=8Ôè1ÑÍÐ%¹¥¹ÐIÁ½ÉÑÌVCVCV@¨½ô(ñÍÑ¥½¸ÍÑå±õíìµÉ¥¹	½ÑÑ½´èÈàõôø(ñ¥ØÍÑå±õíì¥ÍÁ±äè±à°±¥¹%ÑµÌè¹ÑÈ°Àèà°µÉ¥¹	½ÑÑ½´èÄÐõôø(ñÍÁ¸ÍÑå±õíì½¹ÑM¥éèÄÐõôûÂ~N,ð½ÍÁ¸ø(ñ ÈÍÑå±õíì½¹ÑM¥éèÄØ°½¹Ñ]¥¡ÐèàÀÀ°±ÑÑÉMÁ¥¹è´À¸ÀÍ´°µÉ¥¸èÀõôù1ÑÍÐ%¹¥¹ÐIÁ½ÉÑÌð½ Èø(ð½¥Øø((ñ¥ØÍÑå±õíì½ÉÉI¥ÕÌèÄÈ°Á¥¹èÄ°­É½Õ¹èL¹Äõôø(ñ¥ØÍÑå±õíì­É½Õ¹èL¹ÌÄ°½ÉÉI¥ÕÌèÄÄ°½ÙÉ±½Üè¡¥¸õôø(ì¼¨!È¨½ô(ñ¥ØÍÑå±õíì(¥ÍÁ±äèÉ¥°É¥QµÁ±Ñ
+½±Õµ¹ÌèÅÈÄÀÁÁààÁÁààÁÁà°(Á¥¹èÄÁÁàÄáÁà°½ÉÉ	½ÑÑ½´èÅÁàÍ½±¥íL¹Áõ°(½¹Ñµ¥±äèL¹µ½¹¼°½¹ÑM¥éèä°½¹Ñ]¥¡ÐèÜÀÀ°½±½ÈèL¹ÐÐ°(ÑáÑQÉ¹Í½É´èÕÁÁÉÍ°±ÑÑÉMÁ¥¹èÀ¸Àá´°(õôø(ñÍÁ¸ùMÉÙ¥ð½ÍÁ¸ø(ñÍÁ¸ÍÑå±õíìÑáÑ±¥¸èÉ¥¡ÐõôùIÁ½ÉÑÌ½¡Èð½ÍÁ¸ø(ñÍÁ¸ÍÑå±õíìÑáÑ±¥¸èÉ¥¡ÐõôùMÑÑÕÌð½ÍÁ¸ø(ñÍÁ¸ÍÑå±õíìÑáÑ±¥¸èÉ¥¡ÐõôùQÉ¹ð½ÍÁ¸ø(ð½¥Øø((ì¼¨I½ÝÌ¨½ô(ìÑü¹ÁÕ±Íü¹¥±ÑÈ¡ÀôøÀ¹ÉÁ½ÉÑÍ|ÈÑ øÀ¤¹Í±¥ À°ÄÈ¤¹µÀ¡Àôø (ñ­äõíÀ¹½µ¥¹ô¡Éõí½ÍÑÑÕÌ¼íÀ¹½µ¥¹õôÍÑå±õíì(ÑáÑ½ÉÑ¥½¸è¹½¹°½±½ÈèL¹ÐÄ°(¥ÍÁ±äèÉ¥°É¥QµÁ±Ñ
+½±Õµ¹ÌèÅÈÄÀÁÁààÁÁààÁÁà°(Á¥¹èÄÁÁàÄáÁà°±¥¹%ÑµÌè¹ÑÈ°(½ÉÉ	½ÑÑ½´èÅÁàÍ½±¥íL¹Áõ°(õôø(ñ¥ØÍÑå±õíì¥ÍÁ±äè±à°±¥¹%ÑµÌè¹ÑÈ°Àèàõôø(ñMÑÑÕÍ½ÐÍÑÑÕÌõíÀ¹¹½µ±äôôôµ©½Èü½Ý¸èÀ¹¹½µ±äôôô±ÙÑüÉè½ÁÉÑ¥½¹°ôÍ¥éõìÙô¼ø(ñÍÁ¸ÍÑå±õíì½¹ÑM¥éèÄÈ°½¹Ñ]¥¡ÐèØÀÀõôùíÑ9µ¡À¹½µ¥¸¥ôð½ÍÁ¸ø(ñÍÁ¸ÍÑå±õíì½¹Ñµ¥±äèL¹µ½¹¼°½¹ÑM¥éèä°½±½ÈèL¹ÐÐõôùíÀ¹½µ¥¹ôð½ÍÁ¸ø(ð½¥Øø(ñÍÁ¸ÍÑå±õíì½¹Ñµ¥±äèL¹µ½¹¼°½¹ÑM¥éèÄÄ°½±½ÈèÀ¹ÉÁ½ÉÑÍ|Å øÔÀüL¹¸èÀ¹ÉÁ½ÉÑÍ|Å øÄÀüL¹ÝÉ¸èL¹ÐÈ°ÑáÑ±¥¸èÉ¥¡Ð°½¹Ñ]¥¡ÐèØÀÀõôø(íÀ¹ÉÁ½ÉÑÍ|Å¡ô(ð½ÍÁ¸ø(ñÍÁ¸ÍÑå±õíìÑáÑ±¥¸èÉ¥¡Ðõôøñ	±Ù°õíÀ¹¹½µ±åô½µÁÐ¼øð½ÍÁ¸ø(ñ¥ØÍÑå±õíì¥ÍÁ±äè±à°©ÕÍÑ¥å
+½¹Ñ¹Ðè±àµ¹õôø(ñMÁÉ¬ÑõíÀ¹ÍÁÉ­±¥¹ô½±½ÈõíÀ¹¹½µ±äôôôµ©½ÈüL¹¸èÀ¹¹½µ±äôôô±ÙÑüL¹ÝÉ¸èL¹ôÜõìÔÁô õìÄÙô¼ø(ð½¥Øø(ð½ø(¤¥ô((ì¼¨µÁÑäÍÑÑ¨½ô(ì Ñü¹ÁÕ±ÍñðÑ¹ÁÕ±Í¹¥±ÑÈ¡ÀôøÀ¹ÉÁ½ÉÑÍ|ÈÑ øÀ¤¹±¹Ñ ôôôÀ¤ (ñ¥ØÍÑå±õíìÁ¥¹èÈÑÁàÄáÁà°ÑáÑ±¥¸è¹ÑÈ°½¹Ñµ¥±äèL¹µ½¹¼°½¹ÑM¥éèÄÄ°½±½ÈèL¹ÐÔõôø(9¼¥¹¥¹ÐÉÁ½ÉÑÌ¥¸Ñ¡±ÍÐÈÐ¡½ÕÉÌ(ð½¥Øø(¥ô(ð½¥Øø(ð½¥Øø(ð½ÍÑ¥½¸ø((ì¼¨VCVCV@M
+Q%=8ØèEÕ¥¬¡¬
+QVCVCV@¨½ô(ñÍÑ¥½¸ÍÑå±õíìµÉ¥¹	½ÑÑ½´èÈàõôø(ñ¥ØÍÑå±õíì(½ÉÉI¥ÕÌèÄÐ°Á¥¹èÄ°(­É½Õ¹è±¥¹ÈµÉ¥¹Ð ÄÌÕ°íL¹ôÄÔ°íL¹ôÄÔ¥°(õôø(ñ¥ØÍÑå±õíì(­É½Õ¹èL¹ÌÄ°½ÉÉI¥ÕÌèÄÌ°Á¥¹èÈáÁàÌÉÁà°(¥ÍÁ±äè±à°±¥¹%ÑµÌè¹ÑÈ°©ÕÍÑ¥å
+½¹Ñ¹ÐèÍÁµÑÝ¸°±á]ÉÀèÝÉÀ°ÀèÄØ°(õôø(ñ¥Øø(ñ ÌÍÑå±õíì½¹ÑM¥éèÄØ°½¹Ñ]¥¡ÐèàÀÀ°±ÑÑÉMÁ¥¹è´À¸ÀÍ´°µÉ¥¸èÀÀÑÁàõôù
+¡¬¹äÝÍ¥Ñð½ Ìø(ñÀÍÑå±õíì½¹ÑM¥éèÄÈ°½±½ÈèL¹ÐÌ°µÉ¥¸èÀõôùI°µÑ¥µÍÉÙÈ¡¬¬$½ÕÑ¥¹Ñ±±¥¹¥¸Í½¹Ìð½Àø(ð½¥Øø(ñ¡Éô¼ÍÑå±õíì(Á¥¹èÄÁÁàÈÑÁà°½¹ÑM¥éèÄÌ°½¹Ñ]¥¡ÐèÜÀÀ°½±½ÈèL¹Ù½¥°(­É½Õ¹èL¹ÐÄ°½ÉÉI¥ÕÌèà°ÑáÑ½ÉÑ¥½¸è¹½¹°(õôù
+¡¬9½ÜHð½ø(ð½¥Øø(ð½¥Øø(ð½ÍÑ¥½¸ø((ð½¥Øø((ì¼¨RR ½½ÑÈRR ¨½ô(ñ½½ÑÈÍÑå±õíì½ÉÉQ½ÀèÅÁàÍ½±¥íL¹Áõ°Á¥¹èÈÑÁàÀÈáÁàõôø(ñ¥ØÍÑå±õíì¥ÍÁ±äè±à°±¥¹%ÑµÌè¹ÑÈ°©ÕÍÑ¥å
+½¹Ñ¹ÐèÍÁµÑÝ¸°µá]¥Ñ èÄÀàÀ°µÉ¥¸èÀÕÑ¼°Á¥¹èÀÈÁÁàõôø(ñ¥ØÍÑå±õíì½¹ÑM¥éèÄÈ°½±½ÈèL¹ÐÐõôø(ñÍÑÉ½¹ÍÑå±õíì½±½ÈèL¹ÐÌ°½¹Ñ]¥¡ÐèÜÀÀõôù]Í¥Ñ½Ý¸¹½´ð½ÍÑÉ½¹ø
+ÜI°µÑ¥µ¥¹ÑÉ¹Ð¥¹ÉÍÑÉÕÑÕÉµ½¹¥Ñ½É¥¹(ð½¥Øø(ñ¥ØÍÑå±õíì¥ÍÁ±äè±à°ÀèÄàõôø(íl½ÕÐ°A$°AÉ¥Ùät¹µÀ¡°ôø (ñ­äõí±ô¡Éõí¼í°¹Ñ½1½ÝÉ
+Í ¥õôÍÑå±õíì½¹ÑM¥éèÄÄ°½¹Ñ]¥¡ÐèØÀÀ°½±½ÈèL¹ÐÐ°ÑáÑ½ÉÑ¥½¸è¹½¹õôùí±ôð½ø(¤¥ô(ð½¥Øø(ð½¥Øø(ð½½½ÑÈø(ð½¥Øø(¤ì)ô(
