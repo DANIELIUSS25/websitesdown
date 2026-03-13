@@ -64,8 +64,27 @@ export default function HomePage() {
   const [scanStage, setScanStage] = useState(0); // 0=idle, 1-6=stages, 7=done
   const [scanDomain, setScanDomain] = useState("");
   const [scanStart, setScanStart] = useState(0);
+  const [trendingData, setTrendingData] = useState<{ service: string; domain: string; status: string; reports_1h: number; anomaly_level: string }[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const suggestRef = useRef<HTMLDivElement>(null);
   const stageTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch trending data for search suggestions
+  useEffect(() => {
+    fetch("/api/outages").then(r => r.ok ? r.json() : null).then(d => {
+      if (d?.services) setTrendingData(d.services);
+    }).catch(() => {});
+  }, []);
+
+  // Close suggestions on click outside
+  useEffect(() => {
+    const h = (e: MouseEvent) => {
+      if (suggestRef.current && !suggestRef.current.contains(e.target as Node)) setShowSuggestions(false);
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -172,7 +191,7 @@ export default function HomePage() {
           </p>
 
           {/* ── SEARCH BAR ── */}
-          <div style={{ maxWidth: 500, margin: "0 auto" }}>
+          <div style={{ maxWidth: 500, margin: "0 auto", position: "relative" }} ref={suggestRef}>
             <div style={{
               borderRadius: 16, padding: 1, transition: "all 0.25s",
               background: focused ? `linear-gradient(135deg, rgba(165,180,252,0.22), rgba(129,140,248,0.08), rgba(165,180,252,0.18))` : S.e1,
@@ -184,8 +203,8 @@ export default function HomePage() {
                   ref={inputRef}
                   type="text"
                   value={query}
-                  onChange={e => setQuery(e.target.value)}
-                  onFocus={() => setFocused(true)}
+                  onChange={e => { setQuery(e.target.value); setShowSuggestions(true); }}
+                  onFocus={() => { setFocused(true); setShowSuggestions(true); }}
                   onBlur={() => setFocused(false)}
                   placeholder="youtube.com"
                   spellCheck={false}
@@ -204,6 +223,15 @@ export default function HomePage() {
                 </button>
               </form>
             </div>
+
+            {/* ── TRENDING SUGGESTIONS DROPDOWN ── */}
+            {showSuggestions && !loading && scanStage === 0 && trendingData.length > 0 && (
+              <TrendingSuggestions
+                data={trendingData}
+                query={query}
+                onSelect={(d) => { setShowSuggestions(false); setQuery(d); runCheck(d); }}
+              />
+            )}
 
             {/* Hints */}
             <div style={{ marginTop: 18, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, flexWrap: "wrap" }}>
@@ -295,6 +323,130 @@ export default function HomePage() {
             {["About", "API", "Contact", "Privacy"].map(l => <a key={l} href={`/${l.toLowerCase()}`} style={{ fontSize: 11.5, fontWeight: 600, color: S.t4, textDecoration: "none" }}>{l}</a>)}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================
+   TRENDING SUGGESTIONS — search dropdown
+   ================================================================ */
+
+type TrendingItem = { service: string; domain: string; status: string; reports_1h: number; anomaly_level: string };
+
+function TrendingSuggestions({ data, query, onSelect }: { data: TrendingItem[]; query: string; onSelect: (domain: string) => void }) {
+  const q = query.trim().toLowerCase();
+
+  // Filter: if query is typed, match against name/domain; otherwise show trending
+  const filtered = q
+    ? data.filter(d => d.service.toLowerCase().includes(q) || d.domain.toLowerCase().includes(q)).slice(0, 6)
+    : data.slice(0, 8);
+
+  if (filtered.length === 0 && q) return null;
+
+  // Separate services with issues from operational ones
+  const withIssues = filtered.filter(d => d.status !== "operational" || d.anomaly_level !== "normal" || d.reports_1h > 0);
+  const operational = filtered.filter(d => d.status === "operational" && d.anomaly_level === "normal" && d.reports_1h === 0);
+
+  const statusDot: Record<string, string> = { operational: S.up, degraded: S.warn, down: S.dn, unknown: S.t4 };
+
+  return (
+    <div style={{
+      position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, zIndex: 50,
+      borderRadius: 14, background: S.s1, border: `1px solid ${S.e2}`,
+      boxShadow: "0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03)",
+      overflow: "hidden", animation: "resIn 0.2s cubic-bezier(0.16,1,0.3,1)",
+    }}>
+      {/* Header */}
+      <div style={{ padding: "9px 14px", borderBottom: `1px solid ${S.e0}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ width: 4, height: 4, borderRadius: "50%", background: S.ac, display: "inline-block" }} />
+          <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: S.t3 }}>
+            {q ? "Search results" : "Trending now"}
+          </span>
+        </div>
+        <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 9, color: S.t5 }}>Live status</span>
+      </div>
+
+      {/* Services with issues first */}
+      {withIssues.length > 0 && (
+        <div>
+          {withIssues.map((item, i) => (
+            <SuggestionRow key={item.domain} item={item} statusDot={statusDot} onSelect={onSelect} isLast={i === withIssues.length - 1 && operational.length === 0} />
+          ))}
+        </div>
+      )}
+
+      {/* Divider between issues and operational */}
+      {withIssues.length > 0 && operational.length > 0 && (
+        <div style={{ padding: "0 14px" }}><div style={{ height: 1, background: S.e0 }} /></div>
+      )}
+
+      {/* Operational services */}
+      {operational.length > 0 && (
+        <div>
+          {operational.map((item, i) => (
+            <SuggestionRow key={item.domain} item={item} statusDot={statusDot} onSelect={onSelect} isLast={i === operational.length - 1} />
+          ))}
+        </div>
+      )}
+
+      {/* Footer */}
+      <div style={{ padding: "7px 14px", borderTop: `1px solid ${S.e0}`, background: S.s2 }}>
+        <span style={{ fontSize: 9.5, color: S.t4, fontWeight: 500 }}>
+          {q ? "Press Enter to check any domain" : "Type a domain or select a service"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function SuggestionRow({ item, statusDot, onSelect, isLast }: { item: TrendingItem; statusDot: Record<string, string>; onSelect: (d: string) => void; isLast: boolean }) {
+  const [hov, setHov] = useState(false);
+  const dot = statusDot[item.status] || S.t4;
+  const hasIssue = item.status !== "operational" || item.anomaly_level !== "normal" || item.reports_1h > 0;
+
+  return (
+    <div
+      onMouseDown={(e) => { e.preventDefault(); onSelect(item.domain); }}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: "flex", alignItems: "center", gap: 10, padding: "9px 14px",
+        cursor: "pointer", transition: "background 0.1s",
+        background: hov ? S.s2 : "transparent",
+      }}
+    >
+      {/* Status dot */}
+      <span style={{ width: 6, height: 6, borderRadius: "50%", background: dot, flexShrink: 0, position: "relative" }}>
+        {item.status === "down" && <span style={{ position: "absolute", inset: -2, borderRadius: "50%", border: `1px solid ${S.dn}`, animation: "dotRing 2s ease-out infinite" }} />}
+      </span>
+
+      {/* Service info */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ fontSize: 12.5, fontWeight: 600, color: S.t1, letterSpacing: "-0.01em" }}>{item.service}</span>
+        <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 10, color: S.t4, marginLeft: 8 }}>{item.domain}</span>
+      </div>
+
+      {/* Status / report badges */}
+      <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+        {item.reports_1h > 0 && (
+          <span style={{
+            fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 9.5, fontWeight: 600,
+            padding: "2px 7px", borderRadius: 4,
+            color: item.anomaly_level === "major" ? S.dn : item.anomaly_level === "elevated" ? S.warn : S.t3,
+            background: item.anomaly_level === "major" ? S.dnBg : item.anomaly_level === "elevated" ? S.warnBg : S.s3,
+            border: `1px solid ${item.anomaly_level === "major" ? S.dnBd : item.anomaly_level === "elevated" ? S.warnBd : S.e0}`,
+          }}>
+            {item.reports_1h} report{item.reports_1h !== 1 ? "s" : ""}
+          </span>
+        )}
+        <span style={{
+          fontSize: 9, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "0.04em",
+          color: dot,
+        }}>
+          {item.status === "down" ? "Down" : item.status === "degraded" ? "Slow" : "Up"}
+        </span>
       </div>
     </div>
   );

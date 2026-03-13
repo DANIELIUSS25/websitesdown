@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { tokens } from "@/lib/design-tokens";
 
 const S = { ...tokens, t2: "#b0b8c7" };
@@ -8,6 +8,7 @@ const S = { ...tokens, t2: "#b0b8c7" };
 type CheckResult = { domain: string; reachable: boolean; status_code: number | null; latency_ms: number; error: string | null; checked_at: string };
 type IntelResult = { domain: string; summary: string; confidence: string; issue_type: string | null; signals: string[]; sources: { title: string; url: string }[] } | null;
 type PulseData = { reports_15m: number; reports_1h: number; reports_24h: number; confirmations_1h: number; spike_ratio: number; anomaly: string; sparkline: { hour: string; reports: number }[]; top_issue: string | null };
+type ReportSummary = { reports_15m: number; reports_1h: number; reports_24h: number; working_confirmations: number };
 
 interface Props {
   slug: string;
@@ -28,11 +29,35 @@ export default function SeoStatusClient({ slug, domain, name, description, categ
   const [pulse, setPulse] = useState<PulseData | null>(null);
   const [checking, setChecking] = useState(false);
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
+  const [reportSummary, setReportSummary] = useState<ReportSummary | null>(null);
+  const [reportSent, setReportSent] = useState<"down" | "working" | null>(null);
+  const [showIssueTypes, setShowIssueTypes] = useState(false);
 
-  // Fetch live pulse data on mount
+  const fetchSummary = useCallback(async () => {
+    try {
+      const r = await fetch(`/api/reports/summary?domain=${encodeURIComponent(domain)}`);
+      if (r.ok) setReportSummary(await r.json());
+    } catch { /* silent */ }
+  }, [domain]);
+
+  async function submitReport(type: "down" | "working", issueType?: string) {
+    setReportSent(type);
+    setShowIssueTypes(false);
+    try {
+      await fetch("/api/reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain, report_type: type, issue_type: issueType || undefined }),
+      });
+      fetchSummary();
+    } catch { /* silent */ }
+  }
+
+  // Fetch live pulse data and report summary on mount
   useEffect(() => {
     fetch(`/api/pulse?domain=${encodeURIComponent(domain)}`).then(r => r.ok ? r.json() : null).then(d => { if (d) setPulse(d); }).catch(() => {});
-  }, [domain]);
+    fetchSummary();
+  }, [domain, fetchSummary]);
 
   async function recheck() {
     setChecking(true);
@@ -173,6 +198,64 @@ export default function SeoStatusClient({ slug, domain, name, description, categ
               </div>
             )}
           </div>
+        </div>
+
+        {/* ═══ 3.5 REPORT BUTTONS ═══ */}
+        <div style={{ borderRadius: 12, background: S.s1, border: `1px solid ${S.e1}`, padding: "16px 18px", marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: S.t3, textTransform: "uppercase", letterSpacing: "0.05em" }}>Report Status</div>
+            {reportSummary && reportSummary.working_confirmations > 0 && (
+              <span style={{ fontFamily: S.mono, fontSize: 10, color: S.up }}>{reportSummary.working_confirmations} confirmed working</span>
+            )}
+          </div>
+          {reportSent ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 8, background: reportSent === "down" ? S.dnBg : S.upBg, border: `1px solid ${reportSent === "down" ? S.dnBd : S.upBd}` }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill={reportSent === "down" ? S.dn : S.up}><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+              <span style={{ fontSize: 12, fontWeight: 600, color: reportSent === "down" ? S.dn : S.up }}>
+                {reportSent === "down" ? "Issue reported — thanks for helping others!" : "Confirmation received — thanks!"}
+              </span>
+            </div>
+          ) : (
+            <div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => setShowIssueTypes(true)} style={{
+                  flex: 1, padding: "10px 16px", fontSize: 12, fontWeight: 700,
+                  background: S.dnBg, color: S.dn, border: `1px solid ${S.dnBd}`,
+                  borderRadius: 8, cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  Report Issue
+                </button>
+                <button onClick={() => submitReport("working")} style={{
+                  flex: 1, padding: "10px 16px", fontSize: 12, fontWeight: 700,
+                  background: S.upBg, color: S.up, border: `1px solid ${S.upBd}`,
+                  borderRadius: 8, cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                  It{"\u2019"}s Working For Me
+                </button>
+              </div>
+              {showIssueTypes && (
+                <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap", animation: "resIn 0.25s cubic-bezier(0.16,1,0.3,1)" }}>
+                  {[
+                    { type: "website", label: "Website Down" },
+                    { type: "app", label: "App Issues" },
+                    { type: "login", label: "Login Problems" },
+                    { type: "api", label: "API Errors" },
+                    { type: "connection", label: "Connection Issues" },
+                  ].map(({ type, label }) => (
+                    <button key={type} onClick={() => submitReport("down", type)} style={{
+                      padding: "6px 12px", fontSize: 11, fontWeight: 600,
+                      background: S.s2, color: S.t2, border: `1px solid ${S.e1}`,
+                      borderRadius: 6, cursor: "pointer",
+                    }}>{label}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ═══ 4. AI INTELLIGENCE SUMMARY ═══ */}
