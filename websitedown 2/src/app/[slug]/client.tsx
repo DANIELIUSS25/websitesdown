@@ -156,49 +156,8 @@ export default function SeoStatusClient({ slug, domain, name, description, categ
           </div>
         )}
 
-        {/* ═══ 2. REPORT SPIKE CHART + 3. OUTAGE REPORT COUNT ═══ */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-          {/* Report chart */}
-          <div style={{ borderRadius: 12, background: S.s1, border: `1px solid ${S.e1}`, padding: "16px 18px" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: S.t3, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 12 }}>Report Activity (24h)</div>
-            {pulse?.sparkline && pulse.sparkline.length > 0 ? (
-              <SparkChart data={pulse.sparkline.map(s => s.reports)} />
-            ) : (
-              <div style={{ height: 48, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: S.mono, fontSize: 11, color: S.t5 }}>No report data</div>
-            )}
-          </div>
-
-          {/* Report counts */}
-          <div style={{ borderRadius: 12, background: S.s1, border: `1px solid ${S.e1}`, padding: "16px 18px" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: S.t3, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 12 }}>Outage Reports</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-              {[
-                { v: pulse?.reports_15m ?? 0, l: "15 min" },
-                { v: pulse?.reports_1h ?? 0, l: "1 hour" },
-                { v: pulse?.reports_24h ?? 0, l: "24 hours" },
-              ].map(({ v, l }) => (
-                <div key={l} style={{ textAlign: "center" }}>
-                  <div style={{ fontFamily: S.mono, fontSize: 20, fontWeight: 700, color: v > 50 ? S.dn : v > 10 ? S.warn : S.t1 }}>{v}</div>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: S.t4, textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 2 }}>{l}</div>
-                </div>
-              ))}
-            </div>
-            {pulse && pulse.anomaly !== "none" && (
-              <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{
-                  fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em",
-                  padding: "2px 7px", borderRadius: 4,
-                  color: pulse.anomaly === "high" ? S.dn : pulse.anomaly === "elevated" ? S.warn : S.t3,
-                  background: pulse.anomaly === "high" ? S.dnBg : pulse.anomaly === "elevated" ? S.warnBg : S.s3,
-                  border: `1px solid ${pulse.anomaly === "high" ? S.dnBd : pulse.anomaly === "elevated" ? S.warnBd : S.e0}`,
-                }}>
-                  {pulse.anomaly} anomaly
-                </span>
-                {pulse.spike_ratio > 1 && <span style={{ fontFamily: S.mono, fontSize: 10, color: S.t3 }}>{pulse.spike_ratio}x baseline</span>}
-              </div>
-            )}
-          </div>
-        </div>
+        {/* ═══ 2. 24H OUTAGE REPORT CHART ═══ */}
+        <SeoOutageChart24h pulse={pulse} name={name} />
 
         {/* ═══ 3.5 REPORT BUTTONS ═══ */}
         <div style={{ borderRadius: 12, background: S.s1, border: `1px solid ${S.e1}`, padding: "16px 18px", marginBottom: 16 }}>
@@ -429,27 +388,137 @@ export default function SeoStatusClient({ slug, domain, name, description, categ
   );
 }
 
-/* ── Spark chart (larger version for report activity) ── */
-function SparkChart({ data }: { data: number[] }) {
-  if (!data.length || data.every(v => v === 0)) {
-    return <div style={{ height: 48, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: tokens.mono, fontSize: 11, color: tokens.t5 }}>No reports</div>;
+/* ── 24-Hour Outage Report Chart for SEO pages ── */
+function SeoOutageChart24h({ pulse, name }: { pulse: PulseData | null; name: string }) {
+  const [hovIdx, setHovIdx] = useState<number | null>(null);
+
+  if (!pulse) return null;
+
+  const now = new Date();
+  const buckets: { hour: number; label: string; reports: number }[] = [];
+  for (let i = 23; i >= 0; i--) {
+    const h = new Date(now.getTime() - i * 3600_000);
+    const hourKey = h.getUTCHours();
+    const label = h.toLocaleTimeString("en-US", { hour: "2-digit", hour12: false });
+    const match = pulse.sparkline?.find((s: any) => {
+      const sH = new Date(s.hour).getUTCHours();
+      const sD = new Date(s.hour).getUTCDate();
+      return sH === hourKey && sD === h.getUTCDate();
+    });
+    buckets.push({ hour: hourKey, label, reports: match?.reports ?? 0 });
   }
-  const w = 300, h = 48;
-  const max = Math.max(...data, 1);
-  const step = w / Math.max(data.length - 1, 1);
-  const pts = data.map((v, i) => `${(i * step).toFixed(1)},${(h - 2 - (v / max) * (h - 4)).toFixed(1)}`);
-  const line = `M${pts.join(" L")}`;
-  const area = `${line} L${w},${h} L0,${h} Z`;
-  const peakVal = Math.max(...data);
-  const peakIdx = data.indexOf(peakVal);
-  const peakX = peakIdx * step;
-  const peakY = h - 2 - (peakVal / max) * (h - 4);
+
+  const values = buckets.map(b => b.reports);
+  const max = Math.max(...values, 1);
+  const baseline = (pulse as any).baseline_15m ? (pulse as any).baseline_15m * 4 : 0;
+  const spikeThreshold = Math.max(baseline * 3, 20);
+  const hasData = values.some(v => v > 0);
+
+  const W = 580, H = 130, PAD_T = 8, PAD_B = 20;
+  const barW = (W - 4) / 24;
+  const chartH = H - PAD_T - PAD_B;
 
   return (
-    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ display: "block" }}>
-      <path d={area} fill={S.ac} opacity={0.08} />
-      <path d={line} fill="none" stroke={S.ac} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
-      {peakVal > 0 && <circle cx={peakX} cy={peakY} r={2.5} fill={S.ac} />}
-    </svg>
+    <div style={{ borderRadius: 12, background: S.s1, border: `1px solid ${S.e1}`, marginBottom: 16, overflow: "hidden" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: `1px solid ${S.e0}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: S.t3, textTransform: "uppercase", letterSpacing: "0.06em" }}>Outage Reports</div>
+          <span style={{ fontSize: 9, fontWeight: 600, color: S.t5, textTransform: "uppercase", letterSpacing: "0.04em" }}>24 hours</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: S.ac, opacity: 0.7 }} />
+            <span style={{ fontSize: 9, color: S.t4, fontWeight: 500 }}>Reports</span>
+          </div>
+          {baseline > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ width: 12, height: 0, borderTop: `1.5px dashed ${S.warn}` }} />
+              <span style={{ fontSize: 9, color: S.t4, fontWeight: 500 }}>Baseline</span>
+            </div>
+          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: S.dn, opacity: 0.7 }} />
+            <span style={{ fontSize: 9, color: S.t4, fontWeight: 500 }}>Spike</span>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ padding: "14px 18px" }}>
+        {/* Report counts row */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 14 }}>
+          {[
+            { v: pulse.reports_15m ?? 0, l: "15 min", color: (pulse.reports_15m ?? 0) > 50 ? S.dn : (pulse.reports_15m ?? 0) > 10 ? S.warn : S.t1 },
+            { v: pulse.reports_1h ?? 0, l: "1 hour", color: (pulse.reports_1h ?? 0) > 50 ? S.dn : (pulse.reports_1h ?? 0) > 10 ? S.warn : S.t1 },
+            { v: pulse.reports_24h ?? 0, l: "24 hours", color: S.t1 },
+            { v: pulse.confirmations_1h ?? 0, l: "Working", color: (pulse.confirmations_1h ?? 0) > 0 ? S.up : S.t1 },
+          ].map(({ v, l, color: c }) => (
+            <div key={l} style={{ textAlign: "center", padding: "8px 0", borderRadius: 8, background: S.s2 }}>
+              <div style={{ fontFamily: S.mono, fontSize: 18, fontWeight: 700, color: c }}>{v}</div>
+              <div style={{ fontSize: 9, fontWeight: 700, color: S.t4, textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 2 }}>{l}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Chart */}
+        {!hasData ? (
+          <div style={{ height: H, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, background: S.s2, border: `1px solid ${S.e0}` }}>
+            <span style={{ fontFamily: S.mono, fontSize: 11, color: S.t5 }}>No outage reports in the last 24 hours</span>
+          </div>
+        ) : (
+          <div style={{ position: "relative" }}>
+            <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: "block" }}>
+              {[0.25, 0.5, 0.75].map(pct => (
+                <line key={pct} x1={0} x2={W} y1={PAD_T + chartH * (1 - pct)} y2={PAD_T + chartH * (1 - pct)} stroke={S.e0} strokeWidth={1} />
+              ))}
+              {baseline > 0 && (
+                <line x1={0} x2={W} y1={PAD_T + chartH * (1 - baseline / max)} y2={PAD_T + chartH * (1 - baseline / max)} stroke={S.warn} strokeWidth={1} strokeDasharray="4 3" opacity={0.6} />
+              )}
+              {buckets.map((b, i) => {
+                const barH = max > 0 ? (b.reports / max) * chartH : 0;
+                const x = 2 + i * barW;
+                const y = PAD_T + chartH - barH;
+                const isSpike = b.reports >= spikeThreshold;
+                const isHov = hovIdx === i;
+                return (
+                  <g key={i}>
+                    <rect x={x} y={PAD_T} width={barW} height={chartH + PAD_B} fill="transparent" onMouseEnter={() => setHovIdx(i)} onMouseLeave={() => setHovIdx(null)} style={{ cursor: "pointer" }} />
+                    <rect x={x + 1} y={y} width={Math.max(barW - 2, 2)} height={Math.max(barH, b.reports > 0 ? 2 : 0)} rx={2} ry={2} fill={isSpike ? S.dn : S.ac} opacity={isHov ? 1 : isSpike ? 0.8 : 0.5} style={{ transition: "opacity 0.12s" }} />
+                    {isSpike && <circle cx={x + barW / 2} cy={y - 5} r={2} fill={S.dn} />}
+                  </g>
+                );
+              })}
+              {buckets.map((b, i) => i % 6 === 0 ? <text key={`l-${i}`} x={2 + i * barW + barW / 2} y={H - 3} textAnchor="middle" fill={S.t5} fontSize={8} fontFamily={S.mono}>{b.label}</text> : null)}
+            </svg>
+            {hovIdx !== null && (
+              <div style={{ position: "absolute", top: 0, left: `${((hovIdx + 0.5) / 24) * 100}%`, transform: "translateX(-50%)", padding: "5px 10px", borderRadius: 6, background: S.s4, border: `1px solid ${S.e2}`, boxShadow: "0 4px 12px rgba(0,0,0,0.4)", pointerEvents: "none", zIndex: 10, whiteSpace: "nowrap" }}>
+                <div style={{ fontFamily: S.mono, fontSize: 10, fontWeight: 700, color: S.t1 }}>{buckets[hovIdx].reports} report{buckets[hovIdx].reports !== 1 ? "s" : ""}</div>
+                <div style={{ fontFamily: S.mono, fontSize: 9, color: S.t4 }}>{buckets[hovIdx].label}:00{buckets[hovIdx].reports >= spikeThreshold && <span style={{ color: S.dn, marginLeft: 4 }}>SPIKE</span>}</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Peak summary + anomaly */}
+        {hasData && (() => {
+          const peak = Math.max(...values);
+          const peakIdx = values.indexOf(peak);
+          const spikeCount = values.filter(v => v >= spikeThreshold).length;
+          return (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+              <span style={{ fontFamily: S.mono, fontSize: 10, color: S.t3 }}>Peak: <strong style={{ color: peak >= spikeThreshold ? S.dn : S.t1 }}>{peak}</strong> at {buckets[peakIdx]?.label}:00</span>
+              {spikeCount > 0 ? (
+                <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", padding: "2px 7px", borderRadius: 4, color: S.dn, background: S.dnBg, border: `1px solid ${S.dnBd}` }}>{spikeCount} spike{spikeCount !== 1 ? "s" : ""} detected</span>
+              ) : (
+                <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", padding: "2px 7px", borderRadius: 4, color: S.up, background: S.upBg, border: `1px solid ${S.upBd}` }}>Normal activity</span>
+              )}
+              {pulse.anomaly !== "none" && (
+                <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", padding: "2px 7px", borderRadius: 4, color: pulse.anomaly === "high" ? S.dn : S.warn, background: pulse.anomaly === "high" ? S.dnBg : S.warnBg, border: `1px solid ${pulse.anomaly === "high" ? S.dnBd : S.warnBd}` }}>{pulse.anomaly} anomaly</span>
+              )}
+            </div>
+          );
+        })()}
+      </div>
+    </div>
   );
 }
