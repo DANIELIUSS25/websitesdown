@@ -990,16 +990,17 @@ function CurrentOutages() {
     const aO = a.anomaly_level !== "normal" ? -1 : (statusOrder[a.status] ?? 3);
     const bO = b.anomaly_level !== "normal" ? -1 : (statusOrder[b.status] ?? 3);
     if (aO !== bO) return aO - bO;
-    return b.reports_1h - a.reports_1h;
+    return b.reports_15m - a.reports_15m || b.reports_1h - a.reports_1h;
   });
 
   const hasIssues = data.outages.length > 0;
+  const totalReports = data.services.reduce((s, v) => s + v.reports_15m, 0);
 
   return (
     <section style={{ padding: "76px 0" }} id="outages">
       <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 20px" }}>
         {/* Header */}
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <h2 style={{ fontFamily: "var(--font-manrope)", fontSize: 21, fontWeight: 800, letterSpacing: "-0.04em" }}>Current Internet Outages</h2>
             {hasIssues && (
@@ -1012,10 +1013,10 @@ function CurrentOutages() {
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 11, fontWeight: 600, color: S.t4 }}>
-            <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 9.5, color: S.t5 }}>
-              refresh in {countdown}s
+            <span style={{ fontFamily: S.mono, fontSize: 9.5, color: S.t5 }}>
+              {countdown}s
             </span>
-            {lastUpdate && <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 10 }}>{lastUpdate}</span>}
+            {lastUpdate && <span style={{ fontFamily: S.mono, fontSize: 10 }}>{lastUpdate}</span>}
             <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <span style={{ width: 4, height: 4, borderRadius: "50%", background: S.up, display: "inline-block", position: "relative" }}>
                 <span style={{ position: "absolute", inset: 0, borderRadius: "50%", background: S.up, animation: "livePulse 2s ease-in-out infinite" }} />
@@ -1025,19 +1026,24 @@ function CurrentOutages() {
           </div>
         </div>
 
-        {/* Summary bar + signal sources */}
-        <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
-          <SummaryChip label="Tracked" value={data.total} />
-          <SummaryChip label="Operational" value={data.operational} color={S.up} />
-          {data.issues > 0 && <SummaryChip label="Issues" value={data.issues} color={S.dn} />}
-          <div style={{ marginLeft: "auto", display: "flex", gap: 4, flexWrap: "wrap" }}>
-            <SignalSourceTag label="User Reports" icon="reports" />
-            <SignalSourceTag label="AI Signals" icon="ai" />
-            <SignalSourceTag label="Error Spikes" icon="errors" />
-          </div>
+        {/* Dashboard status strip */}
+        <div style={{
+          display: "flex", gap: 1, marginBottom: 16, borderRadius: 10, overflow: "hidden",
+          background: S.s1, border: `1px solid ${S.e0}`,
+        }}>
+          <DashStat label="Monitored" value={data.total} />
+          <DashStat label="Operational" value={data.operational} color={S.up} />
+          <DashStat label="Issues" value={data.issues} color={data.issues > 0 ? S.dn : S.t4} />
+          <DashStat label="Reports / 15m" value={totalReports} color={totalReports > 0 ? S.warn : S.t4} />
         </div>
 
-        {/* Live activity feed ticker */}
+        {/* Signal sources + live feed */}
+        <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
+          <SignalSourceTag label="User Reports" icon="reports" />
+          <SignalSourceTag label="AI Signals" icon="ai" />
+          <SignalSourceTag label="Error Spikes" icon="errors" />
+        </div>
+
         {feed.length > 0 && <LiveFeedTicker feed={feed} />}
 
         {/* Global status banner */}
@@ -1047,14 +1053,17 @@ function CurrentOutages() {
             background: S.upBg, border: `1px solid ${S.upBd}`,
             display: "flex", alignItems: "center", gap: 10,
           }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: S.up }} />
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: S.up, position: "relative" }}>
+              <span style={{ position: "absolute", inset: 0, borderRadius: "50%", background: S.up, animation: "livePulse 2.5s ease-in-out infinite" }} />
+            </span>
             <span style={{ fontSize: 12.5, fontWeight: 600, color: S.up }}>All monitored services are operational</span>
+            <span style={{ marginLeft: "auto", fontFamily: S.mono, fontSize: 9, color: S.t5 }}>{data.operational}/{data.total} healthy</span>
           </div>
         )}
 
         {/* Outage cards grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
-          {sorted.slice(0, 12).map((svc) => (
+        <div className="outage-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
+          {sorted.slice(0, 12).map((svc, idx) => (
             <OutageCard
               key={svc.domain}
               svc={svc}
@@ -1062,11 +1071,22 @@ function CurrentOutages() {
               onReport={() => submitReport(svc.domain)}
               isReporting={reportingDomain === svc.domain}
               hasReported={reportSent.has(svc.domain)}
+              priority={idx < 3 && svc.anomaly_level !== "normal"}
             />
           ))}
         </div>
       </div>
     </section>
+  );
+}
+
+/* ── Dashboard Stat Cell ── */
+function DashStat({ label, value, color }: { label: string; value: number; color?: string }) {
+  return (
+    <div style={{ flex: 1, padding: "12px 16px", textAlign: "center" }}>
+      <div style={{ fontFamily: S.mono, fontSize: 20, fontWeight: 800, color: color || S.t1, letterSpacing: "-0.03em", lineHeight: 1.1 }}>{value}</div>
+      <div style={{ fontSize: 9.5, fontWeight: 600, color: S.t4, textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 3 }}>{label}</div>
+    </div>
   );
 }
 
@@ -1135,25 +1155,17 @@ function LiveFeedTicker({ feed }: { feed: FeedItem[] }) {
   );
 }
 
-function SummaryChip({ label, value, color }: { label: string; value: number; color?: string }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, background: S.s1, border: `1px solid ${S.e0}`, fontSize: 11, fontWeight: 600 }}>
-      <span style={{ color: S.t4 }}>{label}</span>
-      <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", color: color || S.t2 }}>{value}</span>
-    </div>
-  );
-}
 
-function OutageCard({ svc, sparkline, onReport, isReporting, hasReported }: { svc: OutageService; sparkline?: number[]; onReport: () => void; isReporting: boolean; hasReported: boolean }) {
+function OutageCard({ svc, sparkline, onReport, isReporting, hasReported, priority }: { svc: OutageService; sparkline?: number[]; onReport: () => void; isReporting: boolean; hasReported: boolean; priority?: boolean }) {
   const [hov, setHov] = useState(false);
 
-  const statusColors: Record<string, { dot: string; label: string }> = {
-    operational: { dot: S.up, label: "Operational" },
-    degraded: { dot: S.warn, label: "Degraded" },
-    down: { dot: S.dn, label: "Down" },
-    unknown: { dot: S.t4, label: "Unknown" },
+  const statusConfig: Record<string, { dot: string; label: string; bg: string; border: string }> = {
+    operational: { dot: S.up, label: "Operational", bg: S.upBg, border: S.upBd },
+    degraded: { dot: S.warn, label: "Degraded", bg: S.warnBg, border: S.warnBd },
+    down: { dot: S.dn, label: "Outage", bg: S.dnBg, border: S.dnBd },
+    unknown: { dot: S.t4, label: "Unknown", bg: "rgba(255,255,255,0.03)", border: S.e1 },
   };
-  const st = statusColors[svc.status] || statusColors.unknown;
+  const st = statusConfig[svc.status] || statusConfig.unknown;
 
   const isAbnormal = svc.anomaly_level !== "normal";
   const isMajor = svc.anomaly_level === "major";
@@ -1173,16 +1185,16 @@ function OutageCard({ svc, sparkline, onReport, isReporting, hasReported }: { sv
         background: hov
           ? `linear-gradient(145deg, ${isAbnormal ? (isMajor ? "rgba(248,113,113,0.2)" : "rgba(251,191,36,0.15)") : "rgba(255,255,255,0.09)"}, rgba(255,255,255,0.03))`
           : isAbnormal ? `linear-gradient(145deg, ${isMajor ? "rgba(248,113,113,0.08)" : "rgba(251,191,36,0.06)"}, ${S.e1})` : S.e1,
-        transform: hov ? "translateY(-2px)" : "none",
-        boxShadow: hov ? `0 12px 32px rgba(0,0,0,0.25)` : "none",
+        transform: hov ? "translateY(-3px)" : "none",
+        boxShadow: hov ? `0 16px 40px rgba(0,0,0,0.3)` : "none",
       }}
     >
       <div style={{
         background: hov ? S.s2 : S.s1, borderRadius: 11, padding: "16px 18px",
         display: "flex", flexDirection: "column", gap: 10, transition: "background 0.22s",
-        minHeight: 168,
+        minHeight: 190,
       }}>
-        {/* Top: service name + status */}
+        {/* Top: service name + status badge */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <a href={`/status/${svc.domain}`} style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, textDecoration: "none", color: "inherit" }}>
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: st.dot, flexShrink: 0, position: "relative" }}>
@@ -1190,7 +1202,35 @@ function OutageCard({ svc, sparkline, onReport, isReporting, hasReported }: { sv
             </span>
             <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: "-0.02em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{svc.service}</span>
           </a>
-          <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: st.dot, whiteSpace: "nowrap", flexShrink: 0 }}>{st.label}</span>
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 4,
+            padding: "3px 8px", borderRadius: 6,
+            background: st.bg, border: `1px solid ${st.border}`,
+            fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: st.dot,
+          }}>
+            <span style={{ width: 4, height: 4, borderRadius: "50%", background: st.dot, boxShadow: `0 0 6px ${st.dot}44` }} />
+            {st.label}
+          </div>
+        </div>
+
+        {/* Report count — prominent */}
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+          <span style={{ fontFamily: S.mono, fontSize: 26, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1, color: svc.reports_15m > 0 ? accentColor : S.t3 }}>
+            {svc.reports_15m}
+          </span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+            <span style={{ fontSize: 10, fontWeight: 600, color: S.t3 }}>reports / 15m</span>
+            {svc.baseline > 0 && (
+              <span style={{ fontFamily: S.mono, fontSize: 9, color: S.t5 }}>
+                baseline: {svc.baseline}
+              </span>
+            )}
+          </div>
+          {svc.trend_pct != null && svc.trend_pct > 0 && (
+            <span style={{ marginLeft: "auto", fontFamily: S.mono, fontSize: 10, fontWeight: 700, color: svc.trend_pct >= 500 ? S.dn : S.warn, padding: "2px 6px", borderRadius: 4, background: svc.trend_pct >= 500 ? S.dnBg : S.warnBg }}>
+              +{svc.trend_pct}%
+            </span>
+          )}
         </div>
 
         {/* Signal source badges */}
@@ -1209,46 +1249,17 @@ function OutageCard({ svc, sparkline, onReport, isReporting, hasReported }: { sv
         )}
 
         {/* Sparkline */}
-        <div style={{ flex: 1, minHeight: 32 }}>
+        <div style={{ flex: 1, minHeight: 36, display: "flex", alignItems: "flex-end" }}>
           <OutageSparkline data={sparkline} anomaly={svc.anomaly_level} />
         </div>
 
-        {/* Report count + trend */}
-        <div>
-          {svc.reports_15m > 0 ? (
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: accentColor, lineHeight: 1.4 }}>
-                <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontWeight: 700, fontSize: 16 }}>{svc.reports_15m}</span>
-                <span style={{ color: S.t3, fontWeight: 500 }}> reports in last 15 min</span>
-              </div>
-              {svc.trend_pct != null && svc.trend_pct > 0 && (
-                <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 9.5, fontWeight: 700, color: svc.trend_pct >= 500 ? S.dn : S.warn }}>
-                  +{svc.trend_pct}%
-                </span>
-              )}
-            </div>
-          ) : svc.reports_1h > 0 ? (
-            <div style={{ fontSize: 12, fontWeight: 600, color: S.t3, lineHeight: 1.4 }}>
-              <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontWeight: 700, fontSize: 16, color: S.t2 }}>{svc.reports_1h}</span>
-              <span style={{ fontWeight: 500 }}> reports in last hour</span>
-            </div>
-          ) : (
-            <div style={{ fontSize: 11, color: S.t4 }}>No recent reports</div>
-          )}
-          {lastReportAgo && (svc.reports_15m > 0 || svc.reports_1h > 0) && (
-            <div style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 9, color: S.t5, marginTop: 2 }}>
-              Last report {lastReportAgo}
-            </div>
-          )}
-        </div>
-
-        {/* Anomaly badge + report button row */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        {/* Bottom: anomaly badge + last report + report button */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, borderTop: `1px solid ${S.e0}`, paddingTop: 10 }}>
           {spikeLabel ? (
             <div style={{
               display: "inline-flex", alignItems: "center", gap: 5,
               padding: "4px 10px", borderRadius: 6,
-              fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em",
+              fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em",
               color: isMajor ? S.dn : S.warn,
               background: isMajor ? S.dnBg : S.warnBg,
               border: `1px solid ${isMajor ? S.dnBd : S.warnBd}`,
@@ -1258,7 +1269,11 @@ function OutageCard({ svc, sparkline, onReport, isReporting, hasReported }: { sv
               </svg>
               {spikeLabel}
             </div>
-          ) : <div />}
+          ) : lastReportAgo && (svc.reports_15m > 0 || svc.reports_1h > 0) ? (
+            <span style={{ fontFamily: S.mono, fontSize: 9, color: S.t5 }}>Last report {lastReportAgo}</span>
+          ) : (
+            <span style={{ fontSize: 10, color: S.t4 }}>No recent reports</span>
+          )}
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (!hasReported && !isReporting) onReport(); }}
             disabled={hasReported || isReporting}
@@ -1272,6 +1287,7 @@ function OutageCard({ svc, sparkline, onReport, isReporting, hasReported }: { sv
               cursor: hasReported ? "default" : isReporting ? "wait" : "pointer",
               transition: "all 0.15s",
               opacity: isReporting ? 0.5 : 1,
+              flexShrink: 0,
             }}
           >
             {hasReported ? (
