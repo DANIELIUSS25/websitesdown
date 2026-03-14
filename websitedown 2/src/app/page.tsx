@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, type FormEvent } from "react";
+import { useState, useRef, useEffect, useCallback, type FormEvent } from "react";
 import { tokens } from "@/lib/design-tokens";
 
 /* ================================================================
@@ -61,9 +61,46 @@ export default function HomePage() {
   const [check, setCheck] = useState<CheckResult | null>(null);
   const [intel, setIntel] = useState<IntelResult>(undefined as any);
   const [intelLoading, setIntelLoading] = useState(false);
-  const [scanStage, setScanStage] = useState(0); // 0=idle, 1-7=stages, 8=done
+  const [scanStage, setScanStage] = useState(0); // 0=idle, 1-6=stages, 7=done
+  const [scanDomain, setScanDomain] = useState("");
+  const [scanStart, setScanStart] = useState(0);
+  const [trendingData, setTrendingData] = useState<{ service: string; domain: string; status: string; reports_1h: number; anomaly_level: string }[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const suggestRef = useRef<HTMLDivElement>(null);
   const stageTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const [sparklines, setSparklines] = useState<Record<string, number[]>>({});
+
+  // Fetch trending data for search suggestions + sparklines for platform cards
+  useEffect(() => {
+    fetch("/api/outages").then(r => r.ok ? r.json() : null).then(d => {
+      if (d?.services) setTrendingData(d.services);
+    }).catch(() => {});
+    // Fetch sparkline data for each platform
+    Promise.all(
+      PLATFORMS.map(p =>
+        fetch(`/api/pulse?domain=${encodeURIComponent(p.d)}`).then(r => r.ok ? r.json() : null).catch(() => null)
+      )
+    ).then(results => {
+      const map: Record<string, number[]> = {};
+      results.forEach((r, i) => {
+        if (r?.sparkline_24h) {
+          map[PLATFORMS[i].d] = r.sparkline_24h.map((s: any) => s.reports ?? s.down ?? 0);
+        }
+      });
+      setSparklines(map);
+    });
+  }, []);
+
+  // Close suggestions on click outside
+  useEffect(() => {
+    const h = (e: MouseEvent) => {
+      if (suggestRef.current && !suggestRef.current.contains(e.target as Node)) setShowSuggestions(false);
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -84,10 +121,13 @@ export default function HomePage() {
 
     clearStageTimers();
     setLoading(true); setCheck(null); setIntel(null); setIntelLoading(true);
+    setScanDomain(domain);
+    setScanStart(Date.now());
     setScanStage(1);
 
-    // Auto-advance stages 1-4 on timers (server check phase)
-    const delays = [500, 1000, 1600, 2200]; // when to advance to stages 2,3,4,5
+    // Auto-advance stages 1-4 on timers (infrastructure check phase)
+    // 1=Checking DNS, 2=Testing server response, 3=Measuring latency, 4=Checking CDN edge nodes
+    const delays = [600, 1200, 1900, 2600];
     delays.forEach((ms, i) => {
       stageTimers.current.push(setTimeout(() => setScanStage(i + 2), ms));
     });
@@ -104,23 +144,22 @@ export default function HomePage() {
       setCheck(await clientCheck(domain));
     }
 
-    // Ensure we're at least on stage 5 when check completes
+    // After check completes, advance to stage 5 (Scanning web intelligence)
     clearStageTimers();
     setScanStage(prev => Math.max(prev, 5));
 
-    // Advance to stage 6 after a beat
-    stageTimers.current.push(setTimeout(() => setScanStage(prev => Math.max(prev, 6)), 600));
+    // Intel arrives later — advance to stage 6 (Analyzing outage signals)
+    stageTimers.current.push(setTimeout(() => setScanStage(prev => Math.max(prev, 6)), 800));
 
-    // Intel arrives later
     const intelResult = await intelPromise;
     clearStageTimers();
-    setScanStage(7);
+    setScanStage(6);
     setIntel(intelResult);
     setIntelLoading(false);
 
-    // Brief pause on "Generating result" then reveal
-    await new Promise(r => setTimeout(r, 500));
-    setScanStage(8);
+    // Brief pause on final stage then reveal results
+    await new Promise(r => setTimeout(r, 600));
+    setScanStage(7);
     setLoading(false);
   }
 
@@ -137,6 +176,7 @@ export default function HomePage() {
           WebsiteDown<span style={{ color: S.t4, fontWeight: 600 }}>.com</span>
         </a>
         <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <a href="#outages" style={{ padding: "6px 12px", fontSize: 12.5, fontWeight: 600, color: S.t3, textDecoration: "none", borderRadius: 8 }}>Outages</a>
           <a href="#platforms" style={{ padding: "6px 12px", fontSize: 12.5, fontWeight: 600, color: S.t3, textDecoration: "none", borderRadius: 8 }}>Status</a>
           <a href="#pages" style={{ padding: "6px 12px", fontSize: 12.5, fontWeight: 600, color: S.t3, textDecoration: "none", borderRadius: 8 }}>Checks</a>
           <a href="/pricing" style={{ padding: "6px 12px", fontSize: 12.5, fontWeight: 600, color: S.t3, textDecoration: "none", borderRadius: 8 }}>Pricing</a>
@@ -167,7 +207,7 @@ export default function HomePage() {
           </p>
 
           {/* ── SEARCH BAR ── */}
-          <div style={{ maxWidth: 500, margin: "0 auto" }}>
+          <div style={{ maxWidth: 500, margin: "0 auto", position: "relative" }} ref={suggestRef}>
             <div style={{
               borderRadius: 16, padding: 1, transition: "all 0.25s",
               background: focused ? `linear-gradient(135deg, rgba(165,180,252,0.22), rgba(129,140,248,0.08), rgba(165,180,252,0.18))` : S.e1,
@@ -179,8 +219,8 @@ export default function HomePage() {
                   ref={inputRef}
                   type="text"
                   value={query}
-                  onChange={e => setQuery(e.target.value)}
-                  onFocus={() => setFocused(true)}
+                  onChange={e => { setQuery(e.target.value); setShowSuggestions(true); }}
+                  onFocus={() => { setFocused(true); setShowSuggestions(true); }}
                   onBlur={() => setFocused(false)}
                   placeholder="youtube.com"
                   spellCheck={false}
@@ -200,6 +240,15 @@ export default function HomePage() {
               </form>
             </div>
 
+            {/* ── TRENDING SUGGESTIONS DROPDOWN ── */}
+            {showSuggestions && !loading && scanStage === 0 && trendingData.length > 0 && (
+              <TrendingSuggestions
+                data={trendingData}
+                query={query}
+                onSelect={(d) => { setShowSuggestions(false); setQuery(d); runCheck(d); }}
+              />
+            )}
+
             {/* Hints */}
             <div style={{ marginTop: 18, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, flexWrap: "wrap" }}>
               <span style={{ fontSize: 11.5, color: S.t4, fontWeight: 500 }}>Try</span>
@@ -213,18 +262,23 @@ export default function HomePage() {
           </div>
 
           {/* Scan Progress */}
-          {loading && scanStage > 0 && scanStage < 8 && <ScanProgress stage={scanStage} />}
+          {loading && scanStage > 0 && scanStage < 7 && <ScanProgress stage={scanStage} domain={scanDomain} startTime={scanStart} />}
 
           {/* ── RESULTS ── */}
           <div style={{ maxWidth: 500, margin: "28px auto 0", display: "flex", flexDirection: "column", gap: 10 }}>
-            {scanStage === 8 && check && <CheckCard data={check} />}
-            {scanStage === 8 && intel && <IntelCard data={intel} />}
-            {scanStage === 8 && !intelLoading && !intel && check && <IntelUnavailable />}
+            {scanStage === 7 && check && <CheckCard data={check} />}
+            {scanStage === 7 && intel && <IntelCard data={intel} />}
+            {scanStage === 7 && !intelLoading && !intel && check && <IntelUnavailable />}
           </div>
         </div>
       </section>
 
       {/* ── DIVIDER ── */}
+      <Divider />
+
+      {/* ── CURRENT INTERNET OUTAGES ── */}
+      <CurrentOutages />
+
       <Divider />
 
       {/* ── PLATFORMS ── */}
@@ -240,9 +294,19 @@ export default function HomePage() {
             </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-            {PLATFORMS.map(p => (
-              <PlatformCard key={p.k} platform={p} onClick={() => handlePlatform(p.d)} />
-            ))}
+            {PLATFORMS.map(p => {
+              const svcData = trendingData.find(t => t.domain === p.d);
+              return (
+                <PlatformCard
+                  key={p.k}
+                  platform={p}
+                  onClick={() => handlePlatform(p.d)}
+                  sparkline={sparklines[p.d]}
+                  status={svcData?.status as any}
+                  reports={svcData?.reports_1h ?? 0}
+                />
+              );
+            })}
           </div>
         </div>
       </section>
@@ -291,35 +355,212 @@ export default function HomePage() {
 }
 
 /* ================================================================
+   TRENDING SUGGESTIONS — search dropdown
+   ================================================================ */
+
+type TrendingItem = { service: string; domain: string; status: string; reports_1h: number; anomaly_level: string };
+
+function TrendingSuggestions({ data, query, onSelect }: { data: TrendingItem[]; query: string; onSelect: (domain: string) => void }) {
+  const q = query.trim().toLowerCase();
+
+  // Filter: if query is typed, match against name/domain; otherwise show trending
+  const filtered = q
+    ? data.filter(d => d.service.toLowerCase().includes(q) || d.domain.toLowerCase().includes(q)).slice(0, 6)
+    : data.slice(0, 8);
+
+  if (filtered.length === 0 && q) return null;
+
+  // Separate services with issues from operational ones
+  const withIssues = filtered.filter(d => d.status !== "operational" || d.anomaly_level !== "normal" || d.reports_1h > 0);
+  const operational = filtered.filter(d => d.status === "operational" && d.anomaly_level === "normal" && d.reports_1h === 0);
+
+  const statusDot: Record<string, string> = { operational: S.up, degraded: S.warn, down: S.dn, unknown: S.t4 };
+
+  return (
+    <div style={{
+      position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, zIndex: 50,
+      borderRadius: 14, background: S.s1, border: `1px solid ${S.e2}`,
+      boxShadow: "0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03)",
+      overflow: "hidden", animation: "resIn 0.2s cubic-bezier(0.16,1,0.3,1)",
+    }}>
+      {/* Header */}
+      <div style={{ padding: "9px 14px", borderBottom: `1px solid ${S.e0}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ width: 4, height: 4, borderRadius: "50%", background: S.ac, display: "inline-block" }} />
+          <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: S.t3 }}>
+            {q ? "Search results" : "Trending now"}
+          </span>
+        </div>
+        <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 9, color: S.t5 }}>Live status</span>
+      </div>
+
+      {/* Services with issues first */}
+      {withIssues.length > 0 && (
+        <div>
+          {withIssues.map((item, i) => (
+            <SuggestionRow key={item.domain} item={item} statusDot={statusDot} onSelect={onSelect} isLast={i === withIssues.length - 1 && operational.length === 0} />
+          ))}
+        </div>
+      )}
+
+      {/* Divider between issues and operational */}
+      {withIssues.length > 0 && operational.length > 0 && (
+        <div style={{ padding: "0 14px" }}><div style={{ height: 1, background: S.e0 }} /></div>
+      )}
+
+      {/* Operational services */}
+      {operational.length > 0 && (
+        <div>
+          {operational.map((item, i) => (
+            <SuggestionRow key={item.domain} item={item} statusDot={statusDot} onSelect={onSelect} isLast={i === operational.length - 1} />
+          ))}
+        </div>
+      )}
+
+      {/* Footer */}
+      <div style={{ padding: "7px 14px", borderTop: `1px solid ${S.e0}`, background: S.s2 }}>
+        <span style={{ fontSize: 9.5, color: S.t4, fontWeight: 500 }}>
+          {q ? "Press Enter to check any domain" : "Type a domain or select a service"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function SuggestionRow({ item, statusDot, onSelect, isLast }: { item: TrendingItem; statusDot: Record<string, string>; onSelect: (d: string) => void; isLast: boolean }) {
+  const [hov, setHov] = useState(false);
+  const dot = statusDot[item.status] || S.t4;
+  const hasIssue = item.status !== "operational" || item.anomaly_level !== "normal" || item.reports_1h > 0;
+
+  return (
+    <div
+      onMouseDown={(e) => { e.preventDefault(); onSelect(item.domain); }}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: "flex", alignItems: "center", gap: 10, padding: "9px 14px",
+        cursor: "pointer", transition: "background 0.1s",
+        background: hov ? S.s2 : "transparent",
+      }}
+    >
+      {/* Status dot */}
+      <span style={{ width: 6, height: 6, borderRadius: "50%", background: dot, flexShrink: 0, position: "relative" }}>
+        {item.status === "down" && <span style={{ position: "absolute", inset: -2, borderRadius: "50%", border: `1px solid ${S.dn}`, animation: "dotRing 2s ease-out infinite" }} />}
+      </span>
+
+      {/* Service info */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ fontSize: 12.5, fontWeight: 600, color: S.t1, letterSpacing: "-0.01em" }}>{item.service}</span>
+        <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 10, color: S.t4, marginLeft: 8 }}>{item.domain}</span>
+      </div>
+
+      {/* Status / report badges */}
+      <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+        {item.reports_1h > 0 && (
+          <span style={{
+            fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 9.5, fontWeight: 600,
+            padding: "2px 7px", borderRadius: 4,
+            color: item.anomaly_level === "major" ? S.dn : item.anomaly_level === "elevated" ? S.warn : S.t3,
+            background: item.anomaly_level === "major" ? S.dnBg : item.anomaly_level === "elevated" ? S.warnBg : S.s3,
+            border: `1px solid ${item.anomaly_level === "major" ? S.dnBd : item.anomaly_level === "elevated" ? S.warnBd : S.e0}`,
+          }}>
+            {item.reports_1h} report{item.reports_1h !== 1 ? "s" : ""}
+          </span>
+        )}
+        <span style={{
+          fontSize: 9, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "0.04em",
+          color: dot,
+        }}>
+          {item.status === "down" ? "Down" : item.status === "degraded" ? "Slow" : "Up"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================
    SUB-COMPONENTS
    ================================================================ */
 
 const SCAN_STAGES = [
-  { label: "Checking DNS", icon: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" },
-  { label: "Testing server response", icon: "M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8h16v10zm-6-1h4v-2h-4v2zm-8-3h10v-2H6v2zm0-3h10V9H6v2z" },
-  { label: "Measuring latency", icon: "M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z" },
-  { label: "Checking CDN edge", icon: "M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4s1.82-4 4.03-4h.33l.29-.71C7.6 7.32 9.68 6 12 6c3.04 0 5.5 2.46 5.5 5.5v.5H19c1.66 0 3 1.34 3 3s-1.34 3-3 3z" },
-  { label: "Scanning web intelligence", icon: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" },
-  { label: "Analyzing outage chatter", icon: "M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" },
-  { label: "Generating result", icon: "M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" },
+  { label: "Checking DNS", sub: "Resolving domain nameservers", icon: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z", eta: 1 },
+  { label: "Testing server response", sub: "HTTP probe from edge infrastructure", icon: "M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8h16v10zm-6-1h4v-2h-4v2zm-8-3h10v-2H6v2zm0-3h10V9H6v2z", eta: 2 },
+  { label: "Measuring latency", sub: "Round-trip timing analysis", icon: "M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z", eta: 3 },
+  { label: "Checking CDN edge nodes", sub: "Probing global delivery network", icon: "M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4s1.82-4 4.03-4h.33l.29-.71C7.6 7.32 9.68 6 12 6c3.04 0 5.5 2.46 5.5 5.5v.5H19c1.66 0 3 1.34 3 3s-1.34 3-3 3z", eta: 4 },
+  { label: "Scanning web intelligence", sub: "AI outage signal detection", icon: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z", eta: 7 },
+  { label: "Analyzing outage signals", sub: "Cross-referencing intelligence sources", icon: "M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z", eta: 9 },
 ];
 
-function ScanProgress({ stage }: { stage: number }) {
+const TOTAL_ETA_SEC = 10;
+
+function ScanProgress({ stage, domain, startTime }: { stage: number; domain: string; startTime: number }) {
+  const [elapsed, setElapsed] = useState(0);
+  const [stageElapsed, setStageElapsed] = useState(0);
+  const stageStartRef = useRef(startTime);
+
+  // Track when stage changes
+  useEffect(() => {
+    stageStartRef.current = Date.now();
+  }, [stage]);
+
+  // Tick elapsed time
+  useEffect(() => {
+    const iv = setInterval(() => {
+      setElapsed(Math.round((Date.now() - startTime) / 100) / 10);
+      setStageElapsed(Math.round((Date.now() - stageStartRef.current) / 100) / 10);
+    }, 100);
+    return () => clearInterval(iv);
+  }, [startTime]);
+
+  const pct = Math.min(Math.round((stage / SCAN_STAGES.length) * 100), 100);
+  const currentStage = SCAN_STAGES[stage - 1];
+  const etaRemaining = Math.max(0, TOTAL_ETA_SEC - elapsed);
+
   return (
     <div style={{ maxWidth: 500, margin: "28px auto 0", animation: "resIn 0.35s cubic-bezier(0.16,1,0.3,1)" }}>
-      <div style={{ borderRadius: 12, background: S.s1, border: `1px solid ${S.e1}`, overflow: "hidden" }}>
-        {/* Progress bar */}
-        <div style={{ height: 2, background: S.s3 }}>
-          <div style={{
-            height: "100%",
-            width: `${Math.round((stage / 7) * 100)}%`,
-            background: `linear-gradient(90deg, ${S.acD}, ${S.ac})`,
-            borderRadius: 99,
-            transition: "width 0.5s cubic-bezier(0.16,1,0.3,1)",
-          }} />
+      <div style={{ borderRadius: 14, background: S.s1, border: `1px solid ${S.e1}`, overflow: "hidden" }}>
+
+        {/* ── Header bar ── */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderBottom: `1px solid ${S.e0}`, background: S.s2 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: S.ac, position: "relative", flexShrink: 0 }}>
+              <span style={{ position: "absolute", inset: 0, borderRadius: "50%", background: S.ac, animation: "livePulse 2s ease-in-out infinite" }} />
+            </span>
+            <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: S.t3 }}>Infrastructure Diagnostic</span>
+          </div>
+          <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 10, fontWeight: 500, color: S.t4 }}>{domain}</span>
         </div>
 
-        <div style={{ padding: "16px 18px" }}>
+        {/* ── Progress bar with percentage ── */}
+        <div style={{ padding: "10px 16px 6px", display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ flex: 1, height: 4, background: S.s3, borderRadius: 99, overflow: "hidden", position: "relative" }}>
+            <div style={{
+              height: "100%",
+              width: `${pct}%`,
+              background: `linear-gradient(90deg, ${S.acD}, ${S.ac})`,
+              borderRadius: 99,
+              transition: "width 0.6s cubic-bezier(0.16,1,0.3,1)",
+              position: "relative",
+            }}>
+              {/* Shimmer on progress bar */}
+              <span style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)", animation: "shimmer 1.2s ease-in-out infinite" }} />
+            </div>
+          </div>
+          <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 11, fontWeight: 700, color: S.ac, minWidth: 32, textAlign: "right" }}>{pct}%</span>
+        </div>
+
+        {/* ── Timing row ── */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "2px 16px 10px" }}>
+          <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 9.5, color: S.t4 }}>
+            Elapsed {elapsed.toFixed(1)}s
+          </span>
+          <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 9.5, color: S.t4 }}>
+            ETA ~{etaRemaining.toFixed(0)}s remaining
+          </span>
+        </div>
+
+        {/* ── Stage list ── */}
+        <div style={{ padding: "4px 16px 14px" }}>
           {SCAN_STAGES.map((s, i) => {
             const idx = i + 1;
             const isActive = idx === stage;
@@ -329,50 +570,81 @@ function ScanProgress({ stage }: { stage: number }) {
             return (
               <div key={i} style={{
                 display: "flex", alignItems: "center", gap: 10,
-                padding: "6px 0",
-                opacity: isPending ? 0.25 : isDone ? 0.5 : 1,
-                transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)",
-                transform: isActive ? "translateX(2px)" : "none",
+                padding: "7px 0",
+                opacity: isPending ? 0.2 : isDone ? 0.55 : 1,
+                transition: "all 0.45s cubic-bezier(0.16,1,0.3,1)",
+                transform: isActive ? "translateX(3px)" : "none",
               }}>
-                {/* Icon */}
+                {/* Step indicator */}
                 <div style={{
-                  width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+                  width: 24, height: 24, borderRadius: 7, flexShrink: 0,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   background: isActive ? S.acG : isDone ? "rgba(52,211,153,0.06)" : S.s2,
-                  border: `1px solid ${isActive ? "rgba(165,180,252,0.15)" : isDone ? "rgba(52,211,153,0.12)" : S.e0}`,
-                  transition: "all 0.3s",
+                  border: `1px solid ${isActive ? "rgba(165,180,252,0.2)" : isDone ? "rgba(52,211,153,0.15)" : S.e0}`,
+                  transition: "all 0.35s",
+                  boxShadow: isActive ? "0 0 12px rgba(165,180,252,0.08)" : "none",
                 }}>
                   {isDone ? (
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill={S.up}><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill={S.up}><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                  ) : isActive ? (
+                    <span style={{
+                      width: 11, height: 11, borderRadius: "50%",
+                      border: `1.5px solid ${S.e1}`, borderTopColor: S.ac,
+                      animation: "scanSpin 0.55s linear infinite",
+                    }} />
                   ) : (
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill={isActive ? S.ac : S.t5}><path d={s.icon}/></svg>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill={S.t5}><path d={s.icon}/></svg>
                   )}
                 </div>
 
-                {/* Label */}
-                <span style={{
-                  fontSize: 11.5, fontWeight: isActive ? 700 : 500, letterSpacing: "-0.01em",
-                  color: isActive ? S.t1 : isDone ? S.t3 : S.t4,
-                  transition: "all 0.3s",
-                }}>{s.label}</span>
+                {/* Label + sub */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontSize: 12, fontWeight: isActive ? 700 : 500, letterSpacing: "-0.01em",
+                    color: isActive ? S.t1 : isDone ? S.t3 : S.t4,
+                    transition: "all 0.3s",
+                  }}>{s.label}</div>
+                  {isActive && (
+                    <div style={{
+                      fontSize: 9.5, color: S.t4, marginTop: 1,
+                      fontFamily: "var(--font-jetbrains), var(--mono)",
+                      animation: "resIn 0.3s cubic-bezier(0.16,1,0.3,1)",
+                    }}>{s.sub}</div>
+                  )}
+                </div>
 
-                {/* Active spinner */}
+                {/* Right side: timing */}
                 {isActive && (
                   <span style={{
-                    width: 10, height: 10, borderRadius: "50%", marginLeft: "auto",
-                    border: `1.5px solid ${S.e1}`, borderTopColor: S.ac,
-                    animation: "scanSpin 0.6s linear infinite",
-                  }} />
+                    fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 9.5,
+                    color: S.ac, fontWeight: 600, whiteSpace: "nowrap",
+                    animation: "resIn 0.3s cubic-bezier(0.16,1,0.3,1)",
+                  }}>{stageElapsed.toFixed(1)}s</span>
                 )}
-
-                {/* Done dot */}
                 {isDone && (
-                  <span style={{ width: 4, height: 4, borderRadius: "50%", background: S.up, marginLeft: "auto", opacity: 0.6 }} />
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill={S.up} style={{ opacity: 0.5, flexShrink: 0 }}><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
                 )}
               </div>
             );
           })}
         </div>
+
+        {/* ── Active stage highlight bar ── */}
+        {currentStage && (
+          <div style={{
+            borderTop: `1px solid ${S.e0}`, padding: "9px 16px",
+            display: "flex", alignItems: "center", gap: 8,
+            background: "rgba(165,180,252,0.02)",
+          }}>
+            <span style={{ width: 4, height: 4, borderRadius: "50%", background: S.ac, flexShrink: 0, animation: "livePulse 1.5s ease-in-out infinite" }} />
+            <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 10, color: S.t3, fontWeight: 500 }}>
+              {currentStage.sub}
+            </span>
+            <span style={{ marginLeft: "auto", fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 9, color: S.t5 }}>
+              Stage {stage}/{SCAN_STAGES.length}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -431,27 +703,42 @@ function IntelCard({ data }: { data: NonNullable<IntelResult> }) {
         <span style={{ fontSize: 9, fontWeight: 600, color: S.t5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Perplexity</span>
       </div>
       <div style={{ padding: "14px 18px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
-          <span style={{ display: "inline-flex", padding: "2px 8px", borderRadius: 5, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", ...parseStyle(conf.cls) }}>{conf.label}</span>
-          {data.issue_type && <span style={{ fontFamily: "var(--font-jetbrains)", fontSize: 10, color: S.t3, padding: "2px 7px", background: S.s2, border: `1px solid ${S.e0}`, borderRadius: 4 }}>{data.issue_type}</span>}
-        </div>
-        <div style={{ fontSize: 12.5, color: S.t2, lineHeight: 1.6, marginBottom: data.signals?.length ? 10 : 0 }}>{data.summary}</div>
+        {/* AI Summary */}
+        <div style={{ fontSize: 10, fontWeight: 700, color: S.t4, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>AI Summary</div>
+        <div style={{ fontSize: 13, color: S.t1, lineHeight: 1.6, fontWeight: 600, marginBottom: 14 }}>{data.summary}</div>
+        {data.issue_type && <span style={{ fontFamily: "var(--font-jetbrains)", fontSize: 10, color: S.t3, padding: "2px 7px", background: S.s2, border: `1px solid ${S.e0}`, borderRadius: 4, display: "inline-block", marginBottom: 14 }}>{data.issue_type}</span>}
+
+        {/* Detected Signals */}
         {data.signals?.length > 0 && (
-          <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 5 }}>
-            {data.signals.map((s, i) => (
-              <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: 7, fontSize: 11.5, color: S.t2, lineHeight: 1.5 }}>
-                <span style={{ width: 3, height: 3, borderRadius: "50%", background: S.ac, marginTop: 6, flexShrink: 0 }} />
-                {s}
-              </li>
-            ))}
-          </ul>
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: S.t4, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Signals</div>
+            <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 5, padding: 0, margin: 0 }}>
+              {data.signals.map((s, i) => (
+                <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: 7, fontSize: 11.5, color: S.t2, lineHeight: 1.5 }}>
+                  <span style={{ width: 4, height: 4, borderRadius: "50%", background: S.ac, marginTop: 6, flexShrink: 0 }} />
+                  {s}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
+
+        {/* Confidence */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: S.t4, textTransform: "uppercase", letterSpacing: "0.06em" }}>Confidence</span>
+          <span style={{ display: "inline-flex", padding: "2px 8px", borderRadius: 5, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", ...parseStyle(conf.cls) }}>{conf.label}</span>
+        </div>
       </div>
+
+      {/* Sources */}
       {data.sources?.length > 0 && (
-        <div style={{ borderTop: `1px solid ${S.e0}`, padding: "10px 18px", display: "flex", flexWrap: "wrap", gap: 5 }}>
-          {data.sources.map((s, i) => (
-            <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" style={{ fontFamily: "var(--font-jetbrains)", fontSize: 9.5, fontWeight: 500, color: S.ac, textDecoration: "none", padding: "2px 7px", background: S.acG, border: `1px solid rgba(165,180,252,0.08)`, borderRadius: 4 }}>{s.title}</a>
-          ))}
+        <div style={{ borderTop: `1px solid ${S.e0}`, padding: "10px 18px" }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: S.t4, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Sources</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+            {data.sources.map((s, i) => (
+              <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" style={{ fontFamily: "var(--font-jetbrains)", fontSize: 9.5, fontWeight: 500, color: S.ac, textDecoration: "none", padding: "2px 7px", background: S.acG, border: `1px solid rgba(165,180,252,0.08)`, borderRadius: 4 }}>{s.title}</a>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -484,8 +771,10 @@ function IntelUnavailable() {
   );
 }
 
-function PlatformCard({ platform: p, onClick }: { platform: typeof PLATFORMS[0]; onClick: () => void }) {
+function PlatformCard({ platform: p, onClick, sparkline, status, reports }: { platform: typeof PLATFORMS[0]; onClick: () => void; sparkline?: number[]; status?: string; reports?: number }) {
   const [hov, setHov] = useState(false);
+  const statusColor = status === "down" ? S.dn : status === "degraded" ? S.warn : S.up;
+  const statusLabel = status === "down" ? "Down" : status === "degraded" ? "Slow" : "Up";
   return (
     <div onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} style={{
       borderRadius: 12, padding: 1, cursor: "pointer", transition: "all 0.22s", textDecoration: "none", color: S.t1,
@@ -493,23 +782,68 @@ function PlatformCard({ platform: p, onClick }: { platform: typeof PLATFORMS[0];
       transform: hov ? "translateY(-2px)" : "none",
       boxShadow: hov ? "0 12px 32px rgba(0,0,0,0.25)" : "none",
     }}>
-      <div style={{ background: hov ? S.s2 : S.s1, borderRadius: 11, padding: 18, display: "flex", flexDirection: "column", gap: 14, transition: "background 0.22s" }}>
+      <div style={{ background: hov ? S.s2 : S.s1, borderRadius: 11, padding: 18, display: "flex", flexDirection: "column", gap: 10, transition: "background 0.22s" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div
             style={{ width: 36, height: 36, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", background: S.s3, border: `1px solid ${hov ? S.e2 : S.e1}`, color: hov ? S.t1 : S.t3, transition: "all 0.22s", transform: hov ? "scale(1.06)" : "none" }}
             dangerouslySetInnerHTML={{ __html: IC[p.k] }}
           />
-          <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: S.up }}>
-            <span style={{ width: 4, height: 4, borderRadius: "50%", background: S.up, boxShadow: `0 0 4px rgba(52,211,153,0.3)`, display: "inline-block" }} />
-            Up
+          <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: statusColor }}>
+            <span style={{ width: 4, height: 4, borderRadius: "50%", background: statusColor, boxShadow: `0 0 4px ${statusColor}33`, display: "inline-block" }} />
+            {statusLabel}
           </div>
         </div>
+
+        {/* Mini sparkline */}
+        <MiniSparkline data={sparkline} reports={reports} />
+
         <div>
           <div style={{ fontSize: 13.5, fontWeight: 700, letterSpacing: "-0.02em" }}>{p.n}</div>
-          <div style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 10.5, color: S.t4, marginTop: 1 }}>{p.d}</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 1 }}>
+            <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 10.5, color: S.t4 }}>{p.d}</span>
+            {(reports ?? 0) > 0 && (
+              <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 9, color: S.t4 }}>{reports} rpt{(reports ?? 0) !== 1 ? "s" : ""}</span>
+            )}
+          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function MiniSparkline({ data, reports }: { data?: number[]; reports?: number }) {
+  if (!data || data.length === 0) {
+    // Render flat line placeholder
+    return (
+      <svg width="100%" height={24} viewBox="0 0 120 24" preserveAspectRatio="none" style={{ display: "block" }}>
+        <line x1={0} x2={120} y1={20} y2={20} stroke={S.e1} strokeWidth={1} />
+      </svg>
+    );
+  }
+
+  const w = 120, h = 24;
+  const max = Math.max(...data, 1);
+  const step = w / Math.max(data.length - 1, 1);
+  const hasSpike = data.some(v => v >= 20);
+  const lineColor = hasSpike ? S.dn : (reports && reports > 0) ? S.warn : S.ac;
+  const fillColor = hasSpike ? S.dn : (reports && reports > 0) ? S.warn : S.ac;
+
+  const pts = data.map((v, i) => `${(i * step).toFixed(1)},${(h - 2 - (v / max) * (h - 4)).toFixed(1)}`);
+  const line = `M${pts.join(" L")}`;
+  const area = `${line} L${w},${h} L0,${h} Z`;
+
+  // Peak dot
+  const peakVal = Math.max(...data);
+  const peakIdx = data.indexOf(peakVal);
+  const peakX = peakIdx * step;
+  const peakY = h - 2 - (peakVal / max) * (h - 4);
+
+  return (
+    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ display: "block", borderRadius: 4 }}>
+      <path d={area} fill={fillColor} opacity={0.06} />
+      <path d={line} fill="none" stroke={lineColor} strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" opacity={0.6} />
+      {peakVal > 0 && <circle cx={peakX} cy={peakY} r={1.5} fill={lineColor} opacity={0.8} />}
+    </svg>
   );
 }
 
@@ -529,11 +863,476 @@ function StepCard({ step: s }: { step: { n: string; t: string; d: string } }) {
   );
 }
 
+/* ================================================================
+   CURRENT INTERNET OUTAGES — live outage feed
+   ================================================================ */
+
+type OutageService = {
+  service: string;
+  domain: string;
+  category: string;
+  status: "operational" | "degraded" | "down" | "unknown";
+  latency_ms: number | null;
+  reports_15m: number;
+  reports_1h: number;
+  baseline: number;
+  anomaly_level: string;
+  trend: "stable" | "rising" | "spike";
+  trend_pct?: number;
+  sparkline_24h?: number[];
+  signal_sources?: string[];
+  last_report_at?: string | null;
+};
+type OutageData = { services: OutageService[]; outages: OutageService[]; total: number; operational: number; issues: number; generated_at: string };
+type FeedItem = { domain: string; type: string; count: number; time: string };
+
+function CurrentOutages() {
+  const [data, setData] = useState<OutageData | null>(null);
+  const [feed, setFeed] = useState<FeedItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<string>("");
+  const [countdown, setCountdown] = useState(30);
+  const [reportingDomain, setReportingDomain] = useState<string | null>(null);
+  const [reportSent, setReportSent] = useState<Set<string>>(new Set());
+
+  const fetchOutages = useCallback(async () => {
+    try {
+      const r = await fetch("/api/outages");
+      if (r.ok) {
+        const d: OutageData = await r.json();
+        setData(d);
+        setLastUpdate(new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }));
+        setCountdown(30);
+      }
+    } catch { /* silent */ }
+    setLoading(false);
+  }, []);
+
+  const fetchFeed = useCallback(async () => {
+    try {
+      const r = await fetch("/api/reports");
+      if (r.ok) {
+        const d = await r.json();
+        if (d?.feed) setFeed(d.feed);
+      }
+    } catch { /* silent */ }
+  }, []);
+
+  const submitReport = useCallback(async (domain: string) => {
+    setReportingDomain(domain);
+    try {
+      const r = await fetch("/api/reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain, report_type: "down" }),
+      });
+      if (r.ok) {
+        setReportSent(prev => new Set(prev).add(domain));
+      }
+    } catch { /* silent */ }
+    setReportingDomain(null);
+  }, []);
+
+  useEffect(() => {
+    fetchOutages();
+    fetchFeed();
+    const iv = setInterval(fetchOutages, 30_000);
+    const fv = setInterval(fetchFeed, 15_000);
+    return () => { clearInterval(iv); clearInterval(fv); };
+  }, [fetchOutages, fetchFeed]);
+
+  // Countdown timer
+  useEffect(() => {
+    const iv = setInterval(() => setCountdown(c => Math.max(0, c - 1)), 1000);
+    return () => clearInterval(iv);
+  }, []);
+
+  if (loading) {
+    return (
+      <section style={{ padding: "76px 0" }}>
+        <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 20px" }}>
+          <h2 style={{ fontFamily: "var(--font-manrope)", fontSize: 21, fontWeight: 800, letterSpacing: "-0.04em", marginBottom: 32 }}>Current Internet Outages</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
+            {[1,2,3,4,5,6].map(i => (
+              <div key={i} style={{ height: 200, borderRadius: 12, background: S.s1, border: `1px solid ${S.e0}`, animation: `skelP 1s ${i * 0.1}s ease-in-out infinite` }} />
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (!data) return null;
+
+  // Sort: anomalies first, then by report volume
+  const statusOrder: Record<string, number> = { down: 0, degraded: 1, unknown: 2, operational: 3 };
+  const sorted = [...data.services].sort((a, b) => {
+    const aO = a.anomaly_level !== "normal" ? -1 : (statusOrder[a.status] ?? 3);
+    const bO = b.anomaly_level !== "normal" ? -1 : (statusOrder[b.status] ?? 3);
+    if (aO !== bO) return aO - bO;
+    return b.reports_1h - a.reports_1h;
+  });
+
+  const hasIssues = data.outages.length > 0;
+
+  return (
+    <section style={{ padding: "76px 0" }} id="outages">
+      <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 20px" }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <h2 style={{ fontFamily: "var(--font-manrope)", fontSize: 21, fontWeight: 800, letterSpacing: "-0.04em" }}>Current Internet Outages</h2>
+            {hasIssues && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: S.dn, background: S.dnBg, border: `1px solid ${S.dnBd}`, animation: "resIn 0.3s ease" }}>
+                <span style={{ width: 5, height: 5, borderRadius: "50%", background: S.dn, position: "relative" }}>
+                  <span style={{ position: "absolute", inset: 0, borderRadius: "50%", background: S.dn, animation: "livePulse 2s ease-in-out infinite" }} />
+                </span>
+                {data.issues} active issue{data.issues !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 11, fontWeight: 600, color: S.t4 }}>
+            <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 9.5, color: S.t5 }}>
+              refresh in {countdown}s
+            </span>
+            {lastUpdate && <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 10 }}>{lastUpdate}</span>}
+            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ width: 4, height: 4, borderRadius: "50%", background: S.up, display: "inline-block", position: "relative" }}>
+                <span style={{ position: "absolute", inset: 0, borderRadius: "50%", background: S.up, animation: "livePulse 2s ease-in-out infinite" }} />
+              </span>
+              Live
+            </span>
+          </div>
+        </div>
+
+        {/* Summary bar + signal sources */}
+        <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+          <SummaryChip label="Tracked" value={data.total} />
+          <SummaryChip label="Operational" value={data.operational} color={S.up} />
+          {data.issues > 0 && <SummaryChip label="Issues" value={data.issues} color={S.dn} />}
+          <div style={{ marginLeft: "auto", display: "flex", gap: 4, flexWrap: "wrap" }}>
+            <SignalSourceTag label="User Reports" icon="reports" />
+            <SignalSourceTag label="AI Signals" icon="ai" />
+            <SignalSourceTag label="Error Spikes" icon="errors" />
+          </div>
+        </div>
+
+        {/* Live activity feed ticker */}
+        {feed.length > 0 && <LiveFeedTicker feed={feed} />}
+
+        {/* Global status banner */}
+        {!hasIssues && (
+          <div style={{
+            borderRadius: 10, padding: "14px 18px", marginBottom: 16,
+            background: S.upBg, border: `1px solid ${S.upBd}`,
+            display: "flex", alignItems: "center", gap: 10,
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: S.up }} />
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: S.up }}>All monitored services are operational</span>
+          </div>
+        )}
+
+        {/* Outage cards grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
+          {sorted.slice(0, 12).map((svc) => (
+            <OutageCard
+              key={svc.domain}
+              svc={svc}
+              sparkline={svc.sparkline_24h}
+              onReport={() => submitReport(svc.domain)}
+              isReporting={reportingDomain === svc.domain}
+              hasReported={reportSent.has(svc.domain)}
+            />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ── Signal Source Tag ── */
+function SignalSourceTag({ label, icon }: { label: string; icon: "reports" | "ai" | "errors" }) {
+  const colors = { reports: S.ac, ai: "#c084fc", errors: S.warn };
+  const icons = {
+    reports: <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>,
+    ai: <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M21 10.12h-6.78l2.74-2.82c-2.73-2.7-7.15-2.8-9.88-.1-2.73 2.71-2.73 7.08 0 9.79s7.15 2.71 9.88 0C18.32 15.65 19 14.08 19 12.1h2c0 1.98-.88 4.55-2.64 6.29-3.51 3.48-9.21 3.48-12.72 0-3.5-3.47-3.5-9.11 0-12.58 3.51-3.47 9.14-3.49 12.65 0L21 3v7.12z"/></svg>,
+    errors: <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 16h2v2h-2zm0-6h2v4h-2z"/></svg>,
+  };
+  return (
+    <div style={{
+      display: "inline-flex", alignItems: "center", gap: 4,
+      padding: "3px 8px", borderRadius: 5,
+      fontSize: 9, fontWeight: 600, letterSpacing: "0.02em",
+      color: colors[icon], background: `${colors[icon]}0a`, border: `1px solid ${colors[icon]}15`,
+    }}>
+      {icons[icon]}
+      {label}
+    </div>
+  );
+}
+
+/* ── Live Feed Ticker ── */
+function LiveFeedTicker({ feed }: { feed: FeedItem[] }) {
+  const [currentIdx, setCurrentIdx] = useState(0);
+
+  useEffect(() => {
+    if (feed.length <= 1) return;
+    const iv = setInterval(() => setCurrentIdx(i => (i + 1) % Math.min(feed.length, 10)), 3000);
+    return () => clearInterval(iv);
+  }, [feed.length]);
+
+  if (feed.length === 0) return null;
+
+  const item = feed[currentIdx % feed.length];
+  const ago = item?.time ? getTimeAgo(item.time) : "";
+
+  return (
+    <div style={{
+      borderRadius: 10, padding: "10px 16px", marginBottom: 16,
+      background: S.s2, border: `1px solid ${S.e1}`,
+      display: "flex", alignItems: "center", gap: 10,
+      overflow: "hidden", position: "relative",
+    }}>
+      <span style={{ width: 5, height: 5, borderRadius: "50%", background: S.ac, flexShrink: 0, position: "relative" }}>
+        <span style={{ position: "absolute", inset: 0, borderRadius: "50%", background: S.ac, animation: "livePulse 1.5s ease-in-out infinite" }} />
+      </span>
+      <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: S.t3, flexShrink: 0 }}>Signal</span>
+      <div style={{ flex: 1, overflow: "hidden" }}>
+        <div key={currentIdx} style={{ display: "flex", alignItems: "center", gap: 8, animation: "resIn 0.3s ease" }}>
+          <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 11, fontWeight: 600, color: S.t1 }}>{item?.domain}</span>
+          <span style={{ fontSize: 10, color: item?.type === "down" ? S.dn : S.up, fontWeight: 600 }}>
+            {item?.count} {item?.type === "down" ? "outage" : "working"} report{item?.count !== 1 ? "s" : ""}
+          </span>
+        </div>
+      </div>
+      <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 9, color: S.t5, flexShrink: 0 }}>{ago}</span>
+      <div style={{ display: "flex", gap: 2 }}>
+        {feed.slice(0, 5).map((_, i) => (
+          <span key={i} style={{ width: 3, height: 3, borderRadius: "50%", background: i === currentIdx % 5 ? S.ac : S.e1, transition: "background 0.2s" }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SummaryChip({ label, value, color }: { label: string; value: number; color?: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, background: S.s1, border: `1px solid ${S.e0}`, fontSize: 11, fontWeight: 600 }}>
+      <span style={{ color: S.t4 }}>{label}</span>
+      <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", color: color || S.t2 }}>{value}</span>
+    </div>
+  );
+}
+
+function OutageCard({ svc, sparkline, onReport, isReporting, hasReported }: { svc: OutageService; sparkline?: number[]; onReport: () => void; isReporting: boolean; hasReported: boolean }) {
+  const [hov, setHov] = useState(false);
+
+  const statusColors: Record<string, { dot: string; label: string }> = {
+    operational: { dot: S.up, label: "Operational" },
+    degraded: { dot: S.warn, label: "Degraded" },
+    down: { dot: S.dn, label: "Down" },
+    unknown: { dot: S.t4, label: "Unknown" },
+  };
+  const st = statusColors[svc.status] || statusColors.unknown;
+
+  const isAbnormal = svc.anomaly_level !== "normal";
+  const isMajor = svc.anomaly_level === "major";
+  const accentColor = isMajor ? S.dn : isAbnormal ? S.warn : S.up;
+  const spikeLabel = isMajor ? "Major spike detected" : svc.anomaly_level === "elevated" ? "Elevated activity" : null;
+
+  const signalSources = svc.signal_sources || [];
+  const lastReportAgo = svc.last_report_at ? getTimeAgo(svc.last_report_at) : null;
+
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        borderRadius: 12, padding: 1, textDecoration: "none", color: S.t1,
+        transition: "all 0.22s",
+        background: hov
+          ? `linear-gradient(145deg, ${isAbnormal ? (isMajor ? "rgba(248,113,113,0.2)" : "rgba(251,191,36,0.15)") : "rgba(255,255,255,0.09)"}, rgba(255,255,255,0.03))`
+          : isAbnormal ? `linear-gradient(145deg, ${isMajor ? "rgba(248,113,113,0.08)" : "rgba(251,191,36,0.06)"}, ${S.e1})` : S.e1,
+        transform: hov ? "translateY(-2px)" : "none",
+        boxShadow: hov ? `0 12px 32px rgba(0,0,0,0.25)` : "none",
+      }}
+    >
+      <div style={{
+        background: hov ? S.s2 : S.s1, borderRadius: 11, padding: "16px 18px",
+        display: "flex", flexDirection: "column", gap: 10, transition: "background 0.22s",
+        minHeight: 168,
+      }}>
+        {/* Top: service name + status */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <a href={`/status/${svc.domain}`} style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, textDecoration: "none", color: "inherit" }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: st.dot, flexShrink: 0, position: "relative" }}>
+              {(svc.status === "down" || isMajor) && <span style={{ position: "absolute", inset: -3, borderRadius: "50%", border: `1px solid ${st.dot}`, animation: "dotRing 2s ease-out infinite" }} />}
+            </span>
+            <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: "-0.02em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{svc.service}</span>
+          </a>
+          <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: st.dot, whiteSpace: "nowrap", flexShrink: 0 }}>{st.label}</span>
+        </div>
+
+        {/* Signal source badges */}
+        {signalSources.length > 0 && (
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            {signalSources.includes("user_reports") && (
+              <span style={{ fontSize: 8.5, fontWeight: 700, padding: "2px 6px", borderRadius: 4, color: S.ac, background: `${S.ac}0a`, border: `1px solid ${S.ac}15`, letterSpacing: "0.03em", textTransform: "uppercase" }}>User Reports</span>
+            )}
+            {signalSources.includes("ai_signals") && (
+              <span style={{ fontSize: 8.5, fontWeight: 700, padding: "2px 6px", borderRadius: 4, color: "#c084fc", background: "rgba(192,132,252,0.06)", border: "1px solid rgba(192,132,252,0.12)", letterSpacing: "0.03em", textTransform: "uppercase" }}>AI Signal</span>
+            )}
+            {signalSources.includes("error_spikes") && (
+              <span style={{ fontSize: 8.5, fontWeight: 700, padding: "2px 6px", borderRadius: 4, color: S.warn, background: S.warnBg, border: `1px solid ${S.warnBd}`, letterSpacing: "0.03em", textTransform: "uppercase" }}>Error Spike</span>
+            )}
+          </div>
+        )}
+
+        {/* Sparkline */}
+        <div style={{ flex: 1, minHeight: 32 }}>
+          <OutageSparkline data={sparkline} anomaly={svc.anomaly_level} />
+        </div>
+
+        {/* Report count + trend */}
+        <div>
+          {svc.reports_15m > 0 ? (
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: accentColor, lineHeight: 1.4 }}>
+                <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontWeight: 700, fontSize: 16 }}>{svc.reports_15m}</span>
+                <span style={{ color: S.t3, fontWeight: 500 }}> reports in last 15 min</span>
+              </div>
+              {svc.trend_pct != null && svc.trend_pct > 0 && (
+                <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 9.5, fontWeight: 700, color: svc.trend_pct >= 500 ? S.dn : S.warn }}>
+                  +{svc.trend_pct}%
+                </span>
+              )}
+            </div>
+          ) : svc.reports_1h > 0 ? (
+            <div style={{ fontSize: 12, fontWeight: 600, color: S.t3, lineHeight: 1.4 }}>
+              <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontWeight: 700, fontSize: 16, color: S.t2 }}>{svc.reports_1h}</span>
+              <span style={{ fontWeight: 500 }}> reports in last hour</span>
+            </div>
+          ) : (
+            <div style={{ fontSize: 11, color: S.t4 }}>No recent reports</div>
+          )}
+          {lastReportAgo && (svc.reports_15m > 0 || svc.reports_1h > 0) && (
+            <div style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 9, color: S.t5, marginTop: 2 }}>
+              Last report {lastReportAgo}
+            </div>
+          )}
+        </div>
+
+        {/* Anomaly badge + report button row */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          {spikeLabel ? (
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 5,
+              padding: "4px 10px", borderRadius: 6,
+              fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em",
+              color: isMajor ? S.dn : S.warn,
+              background: isMajor ? S.dnBg : S.warnBg,
+              border: `1px solid ${isMajor ? S.dnBd : S.warnBd}`,
+            }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                {isMajor ? <><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></> : <><polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" /></>}
+              </svg>
+              {spikeLabel}
+            </div>
+          ) : <div />}
+          <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (!hasReported && !isReporting) onReport(); }}
+            disabled={hasReported || isReporting}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 4,
+              padding: "4px 10px", borderRadius: 6,
+              fontSize: 9.5, fontWeight: 700, letterSpacing: "0.02em",
+              color: hasReported ? S.up : S.t3,
+              background: hasReported ? S.upBg : S.s3,
+              border: `1px solid ${hasReported ? S.upBd : S.e1}`,
+              cursor: hasReported ? "default" : isReporting ? "wait" : "pointer",
+              transition: "all 0.15s",
+              opacity: isReporting ? 0.5 : 1,
+            }}
+          >
+            {hasReported ? (
+              <>
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                Reported
+              </>
+            ) : (
+              <>
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
+                {isReporting ? "Sending..." : "Report Issue"}
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OutageSparkline({ data, anomaly }: { data?: number[]; anomaly: string }) {
+  const w = 200, h = 36;
+
+  if (!data || data.length === 0) {
+    return (
+      <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ display: "block" }}>
+        <line x1={0} x2={w} y1={h - 2} y2={h - 2} stroke={S.e1} strokeWidth={1} />
+      </svg>
+    );
+  }
+
+  const max = Math.max(...data, 1);
+  const step = w / Math.max(data.length - 1, 1);
+  const isMajor = anomaly === "major";
+  const isElevated = anomaly === "elevated";
+  const lineColor = isMajor ? S.dn : isElevated ? S.warn : S.ac;
+
+  const pts = data.map((v, i) => `${(i * step).toFixed(1)},${(h - 2 - (v / max) * (h - 6)).toFixed(1)}`);
+  const line = `M${pts.join(" L")}`;
+  const area = `${line} L${w},${h} L0,${h} Z`;
+
+  const peakVal = Math.max(...data);
+  const peakIdx = data.lastIndexOf(peakVal);
+  const peakX = peakIdx * step;
+  const peakY = h - 2 - (peakVal / max) * (h - 6);
+
+  return (
+    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ display: "block", borderRadius: 4 }}>
+      <defs>
+        <linearGradient id={`osg-${anomaly}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={lineColor} stopOpacity={0.12} />
+          <stop offset="100%" stopColor={lineColor} stopOpacity={0.01} />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#osg-${anomaly})`} />
+      <path d={line} fill="none" stroke={lineColor} strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round" opacity={0.7} />
+      {peakVal > 0 && (
+        <>
+          <circle cx={peakX} cy={peakY} r={2.5} fill={lineColor} opacity={0.9} />
+          {(isMajor || isElevated) && <circle cx={peakX} cy={peakY} r={5} fill="none" stroke={lineColor} strokeWidth={0.8} opacity={0.3} />}
+        </>
+      )}
+    </svg>
+  );
+}
+
 function Divider() {
   return <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 20px" }}><div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${S.e1}, transparent)` }} /></div>;
 }
 
 /* ── Helpers ── */
+
+function getTimeAgo(timestamp: string): string {
+  const diff = Date.now() - new Date(timestamp).getTime();
+  const secs = Math.floor(diff / 1000);
+  if (secs < 60) return `${secs}s ago`;
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  return `${hrs}h ago`;
+}
 
 function parseStyle(str: string): Record<string, string> {
   const result: Record<string, string> = {};

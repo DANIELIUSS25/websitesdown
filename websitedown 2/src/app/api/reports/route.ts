@@ -10,6 +10,44 @@ const VALID_TYPES = ["down", "working"];
 const VALID_ISSUES = ["login", "app", "website", "api", "connection"];
 const DEDUP_WINDOW_SEC = 300; // 5 min per domain per fingerprint
 
+// GET — recent activity feed (last 30 min of aggregate signals)
+export async function GET(req: NextRequest) {
+  const ip = getClientIP(req.headers);
+  if (!rateLimit(`report-feed:${ip}`, 30, 60_000)) {
+    return NextResponse.json({ error: "Rate limited" }, { status: 429 });
+  }
+
+  try {
+    const result = await db.query(`
+      SELECT
+        domain,
+        report_type,
+        date_trunc('minute', created_at) as minute,
+        COUNT(*)::int as count
+      FROM outage_reports
+      WHERE created_at > NOW() - INTERVAL '30 minutes'
+      GROUP BY domain, report_type, minute
+      ORDER BY minute DESC
+      LIMIT 50
+    `);
+
+    const feed = result.rows.map((row: any) => ({
+      domain: row.domain,
+      type: row.report_type,
+      count: row.count,
+      time: row.minute,
+    }));
+
+    return NextResponse.json({ feed, generated_at: new Date().toISOString() }, {
+      headers: { "Cache-Control": "public, s-maxage=10, stale-while-revalidate=20" },
+    });
+  } catch {
+    return NextResponse.json({ feed: [], generated_at: new Date().toISOString() }, {
+      headers: { "Cache-Control": "public, s-maxage=10, stale-while-revalidate=20" },
+    });
+  }
+}
+
 export async function POST(req: NextRequest) {
   // Rate limit: 10 reports per minute per IP
   const ip = getClientIP(req.headers);
