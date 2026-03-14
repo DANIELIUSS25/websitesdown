@@ -64,33 +64,17 @@ export default function HomePage() {
   const [scanStage, setScanStage] = useState(0); // 0=idle, 1-6=stages, 7=done
   const [scanDomain, setScanDomain] = useState("");
   const [scanStart, setScanStart] = useState(0);
-  const [trendingData, setTrendingData] = useState<{ service: string; domain: string; status: string; reports_1h: number; anomaly_level: string }[]>([]);
+  const [trendingData, setTrendingData] = useState<{ service: string; domain: string; status: string; reports_15m: number; reports_1h: number; baseline: number; anomaly_level: string; sparkline_24h?: number[] }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const suggestRef = useRef<HTMLDivElement>(null);
   const stageTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const [sparklines, setSparklines] = useState<Record<string, number[]>>({});
-
-  // Fetch trending data for search suggestions + sparklines for platform cards
+  // Fetch trending data for search suggestions + platform cards (includes sparklines)
   useEffect(() => {
     fetch("/api/outages").then(r => r.ok ? r.json() : null).then(d => {
       if (d?.services) setTrendingData(d.services);
     }).catch(() => {});
-    // Fetch sparkline data for each platform
-    Promise.all(
-      PLATFORMS.map(p =>
-        fetch(`/api/pulse?domain=${encodeURIComponent(p.d)}`).then(r => r.ok ? r.json() : null).catch(() => null)
-      )
-    ).then(results => {
-      const map: Record<string, number[]> = {};
-      results.forEach((r, i) => {
-        if (r?.sparkline_24h) {
-          map[PLATFORMS[i].d] = r.sparkline_24h.map((s: any) => s.reports ?? s.down ?? 0);
-        }
-      });
-      setSparklines(map);
-    });
   }, []);
 
   // Close suggestions on click outside
@@ -165,7 +149,7 @@ export default function HomePage() {
 
   function handleSubmit(e: FormEvent) { e.preventDefault(); if (query.trim()) runCheck(query.trim()); }
   function handleHint(d: string) { setQuery(d); runCheck(d); }
-  function handlePlatform(d: string) { setQuery(d); runCheck(d); window.scrollTo({ top: 0, behavior: "smooth" }); }
+
 
   return (
     <div style={{ position: "relative", zIndex: 1 }}>
@@ -293,17 +277,19 @@ export default function HomePage() {
               Live
             </div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+          <div className="platform-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
             {PLATFORMS.map(p => {
               const svcData = trendingData.find(t => t.domain === p.d);
               return (
                 <PlatformCard
                   key={p.k}
                   platform={p}
-                  onClick={() => handlePlatform(p.d)}
-                  sparkline={sparklines[p.d]}
+                  href={`/status/${p.d}`}
+                  sparkline={svcData?.sparkline_24h}
                   status={svcData?.status as any}
-                  reports={svcData?.reports_1h ?? 0}
+                  reports15m={svcData?.reports_15m ?? 0}
+                  baseline={svcData?.baseline ?? 0}
+                  anomalyLevel={svcData?.anomaly_level ?? "normal"}
                 />
               );
             })}
@@ -771,78 +757,112 @@ function IntelUnavailable() {
   );
 }
 
-function PlatformCard({ platform: p, onClick, sparkline, status, reports }: { platform: typeof PLATFORMS[0]; onClick: () => void; sparkline?: number[]; status?: string; reports?: number }) {
+function PlatformCard({ platform: p, href, sparkline, status, reports15m, baseline, anomalyLevel }: {
+  platform: typeof PLATFORMS[0]; href: string; sparkline?: number[]; status?: string;
+  reports15m: number; baseline: number; anomalyLevel: string;
+}) {
   const [hov, setHov] = useState(false);
-  const statusColor = status === "down" ? S.dn : status === "degraded" ? S.warn : S.up;
-  const statusLabel = status === "down" ? "Down" : status === "degraded" ? "Slow" : "Up";
+
+  // Status badge config
+  const badge = status === "down"
+    ? { label: "Outage", color: S.dn, bg: S.dnBg, border: S.dnBd }
+    : status === "degraded" || anomalyLevel === "elevated"
+    ? { label: "Degraded", color: S.warn, bg: S.warnBg, border: S.warnBd }
+    : { label: "Operational", color: S.up, bg: S.upBg, border: S.upBd };
+
+  // Sparkline color based on status
+  const sparkColor = status === "down" ? S.dn : (status === "degraded" || anomalyLevel !== "normal") ? S.warn : S.ac;
+
   return (
-    <div onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} style={{
-      borderRadius: 12, padding: 1, cursor: "pointer", transition: "all 0.22s", textDecoration: "none", color: S.t1,
+    <a href={href} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} style={{
+      borderRadius: 12, padding: 1, cursor: "pointer", transition: "all 0.22s", textDecoration: "none", color: S.t1, display: "block",
       background: hov ? `linear-gradient(145deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03), rgba(255,255,255,0.07))` : S.e1,
-      transform: hov ? "translateY(-2px)" : "none",
-      boxShadow: hov ? "0 12px 32px rgba(0,0,0,0.25)" : "none",
+      transform: hov ? "translateY(-3px)" : "none",
+      boxShadow: hov ? "0 16px 40px rgba(0,0,0,0.3)" : "none",
     }}>
-      <div style={{ background: hov ? S.s2 : S.s1, borderRadius: 11, padding: 18, display: "flex", flexDirection: "column", gap: 10, transition: "background 0.22s" }}>
+      <div style={{ background: hov ? S.s2 : S.s1, borderRadius: 11, padding: 16, display: "flex", flexDirection: "column", gap: 10, transition: "background 0.22s", minHeight: 170 }}>
+        {/* Header: icon + status badge */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div
             style={{ width: 36, height: 36, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", background: S.s3, border: `1px solid ${hov ? S.e2 : S.e1}`, color: hov ? S.t1 : S.t3, transition: "all 0.22s", transform: hov ? "scale(1.06)" : "none" }}
             dangerouslySetInnerHTML={{ __html: IC[p.k] }}
           />
-          <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: statusColor }}>
-            <span style={{ width: 4, height: 4, borderRadius: "50%", background: statusColor, boxShadow: `0 0 4px ${statusColor}33`, display: "inline-block" }} />
-            {statusLabel}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 5,
+            padding: "3px 8px", borderRadius: 6,
+            background: badge.bg, border: `1px solid ${badge.border}`,
+            fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: badge.color,
+          }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: badge.color, boxShadow: `0 0 6px ${badge.color}44`, display: "inline-block", position: "relative" }}>
+              {status === "down" && <span style={{ position: "absolute", inset: -1, borderRadius: "50%", background: badge.color, animation: "livePulse 1.5s ease-in-out infinite" }} />}
+            </span>
+            {badge.label}
           </div>
+        </div>
+
+        {/* Platform name + domain */}
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-0.02em" }}>{p.n}</div>
+          <div style={{ fontFamily: S.mono, fontSize: 10.5, color: S.t4, marginTop: 1 }}>{p.d}</div>
         </div>
 
         {/* Mini sparkline */}
-        <MiniSparkline data={sparkline} reports={reports} />
+        <div style={{ flex: 1, display: "flex", alignItems: "flex-end" }}>
+          <MiniSparkline data={sparkline} color={sparkColor} />
+        </div>
 
-        <div>
-          <div style={{ fontSize: 13.5, fontWeight: 700, letterSpacing: "-0.02em" }}>{p.n}</div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 1 }}>
-            <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 10.5, color: S.t4 }}>{p.d}</span>
-            {(reports ?? 0) > 0 && (
-              <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 9, color: S.t4 }}>{reports} rpt{(reports ?? 0) !== 1 ? "s" : ""}</span>
-            )}
+        {/* Report count + baseline */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: `1px solid ${S.e0}`, paddingTop: 8, marginTop: 2 }}>
+          <div style={{ fontFamily: S.mono, fontSize: 10, color: reports15m > 0 ? S.t2 : S.t4 }}>
+            <span style={{ fontWeight: 700, color: reports15m > 0 ? (reports15m >= 20 ? S.dn : S.warn) : S.t4 }}>{reports15m}</span>
+            <span> rpts / 15m</span>
           </div>
+          {baseline > 0 && (
+            <div style={{ fontFamily: S.mono, fontSize: 9, color: S.t4 }}>
+              avg {baseline}
+            </div>
+          )}
         </div>
       </div>
-    </div>
+    </a>
   );
 }
 
-function MiniSparkline({ data, reports }: { data?: number[]; reports?: number }) {
+function MiniSparkline({ data, color }: { data?: number[]; color?: string }) {
+  const lineColor = color || S.ac;
+
   if (!data || data.length === 0) {
-    // Render flat line placeholder
     return (
-      <svg width="100%" height={24} viewBox="0 0 120 24" preserveAspectRatio="none" style={{ display: "block" }}>
-        <line x1={0} x2={120} y1={20} y2={20} stroke={S.e1} strokeWidth={1} />
+      <svg width="100%" height={28} viewBox="0 0 120 28" preserveAspectRatio="none" style={{ display: "block" }}>
+        <line x1={0} x2={120} y1={24} y2={24} stroke={S.e1} strokeWidth={1} />
       </svg>
     );
   }
 
-  const w = 120, h = 24;
+  const w = 120, h = 28;
   const max = Math.max(...data, 1);
   const step = w / Math.max(data.length - 1, 1);
-  const hasSpike = data.some(v => v >= 20);
-  const lineColor = hasSpike ? S.dn : (reports && reports > 0) ? S.warn : S.ac;
-  const fillColor = hasSpike ? S.dn : (reports && reports > 0) ? S.warn : S.ac;
 
-  const pts = data.map((v, i) => `${(i * step).toFixed(1)},${(h - 2 - (v / max) * (h - 4)).toFixed(1)}`);
+  const pts = data.map((v, i) => `${(i * step).toFixed(1)},${(h - 3 - (v / max) * (h - 6)).toFixed(1)}`);
   const line = `M${pts.join(" L")}`;
   const area = `${line} L${w},${h} L0,${h} Z`;
 
-  // Peak dot
   const peakVal = Math.max(...data);
-  const peakIdx = data.indexOf(peakVal);
+  const peakIdx = data.lastIndexOf(peakVal);
   const peakX = peakIdx * step;
-  const peakY = h - 2 - (peakVal / max) * (h - 4);
+  const peakY = h - 3 - (peakVal / max) * (h - 6);
 
   return (
     <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ display: "block", borderRadius: 4 }}>
-      <path d={area} fill={fillColor} opacity={0.06} />
-      <path d={line} fill="none" stroke={lineColor} strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" opacity={0.6} />
-      {peakVal > 0 && <circle cx={peakX} cy={peakY} r={1.5} fill={lineColor} opacity={0.8} />}
+      <defs>
+        <linearGradient id={`spk-${lineColor.replace(/[^a-z0-9]/gi, "")}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={lineColor} stopOpacity={0.12} />
+          <stop offset="100%" stopColor={lineColor} stopOpacity={0.01} />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#spk-${lineColor.replace(/[^a-z0-9]/gi, "")})`} />
+      <path d={line} fill="none" stroke={lineColor} strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round" opacity={0.7} />
+      {peakVal > 0 && <circle cx={peakX} cy={peakY} r={2} fill={lineColor} opacity={0.9} />}
     </svg>
   );
 }
