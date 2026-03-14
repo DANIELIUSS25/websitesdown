@@ -111,6 +111,20 @@ export async function GET() {
       // DB not available — continue with health check data + demo sparklines
     }
 
+    // 2b) Fetch latest report timestamps per domain
+    let lastReportMap: Record<string, string> = {};
+    try {
+      const lastReports = await db.query(`
+        SELECT domain, MAX(created_at) as last_at
+        FROM outage_reports
+        WHERE report_type = 'down' AND created_at > NOW() - INTERVAL '24 hours'
+        GROUP BY domain
+      `);
+      for (const row of lastReports.rows as any[]) {
+        lastReportMap[row.domain] = row.last_at;
+      }
+    } catch { /* DB not available */ }
+
     // 3) Build service list
     const services = top.map((svc, i) => {
       const data = checks[i].status === "fulfilled" ? (checks[i] as PromiseFulfilledResult<any>).value : null;
@@ -138,6 +152,15 @@ export async function GET() {
         ? sparklineData[svc.domain]
         : generateDemoSparkline(svc.domain);
 
+      // Determine signal sources
+      const signal_sources: string[] = [];
+      if (reports_15m > 0 || reports_1h > 0) signal_sources.push("user_reports");
+      if (status === "down" || status === "degraded") signal_sources.push("error_spikes");
+      if (anomaly_level !== "normal") signal_sources.push("ai_signals");
+
+      // Trend percentage change vs baseline
+      const trend_pct = baseline > 0 ? Math.round(((reports_15m - baseline) / baseline) * 100) : 0;
+
       return {
         service: svc.name,
         domain: svc.domain,
@@ -149,7 +172,10 @@ export async function GET() {
         baseline,
         anomaly_level,
         trend,
+        trend_pct,
         sparkline_24h,
+        signal_sources,
+        last_report_at: lastReportMap[svc.domain] || null,
       };
     });
 
