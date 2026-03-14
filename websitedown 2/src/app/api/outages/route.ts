@@ -1,12 +1,39 @@
 // src/app/api/outages/route.ts
 // Returns current outage data for tracked services.
-// Format: { services: [{ service, domain, status, reports_15m, reports_1h, baseline, anomaly_level, trend }], generated_at }
+// Format: { services: [{ service, domain, status, reports_15m, reports_1h, baseline, anomaly_level, trend, sparkline_24h }], generated_at }
 
 import { NextResponse } from "next/server";
 import { SERVICES } from "@/config/services";
 import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
+
+// Deterministic seed-based RNG for consistent demo sparklines per domain
+function seededRandom(seed: string) {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) {
+    h = ((h << 5) - h + seed.charCodeAt(i)) | 0;
+  }
+  return () => {
+    h = (h * 16807 + 0) % 2147483647;
+    return (h & 0x7fffffff) / 2147483647;
+  };
+}
+
+function generateDemoSparkline(domain: string): number[] {
+  const rng = seededRandom(domain);
+  const hours = 24;
+  const points: number[] = [];
+  let base = Math.floor(rng() * 8) + 2;
+
+  for (let i = 0; i < hours; i++) {
+    const noise = Math.floor(rng() * 6) - 2;
+    const spike = rng() > 0.88 ? Math.floor(rng() * 40) + 15 : 0;
+    points.push(Math.max(0, base + noise + spike));
+    base = Math.max(1, base + Math.floor(rng() * 3) - 1);
+  }
+  return points;
+}
 
 export async function GET() {
   try {
@@ -27,6 +54,9 @@ export async function GET() {
 
     // 2) Report pulse data from DB
     let reportData: Record<string, { reports_15m: number; reports_1h: number; baseline: number; anomaly_level: string }> = {};
+    let sparklineData: Record<string, number[]> = {};
+    let hasDbData = false;
+
     try {
       const pulse = await db.query(`
         SELECT
@@ -62,8 +92,23 @@ export async function GET() {
           anomaly_level,
         };
       }
+
+      // Fetch sparklines from DB
+      const sparklines = await db.query(`
+        SELECT domain, date_trunc('hour', window_start) as hour, SUM(reports_down)::int as down
+        FROM report_snapshots
+        WHERE window_start > NOW()-INTERVAL '24 hours'
+        GROUP BY domain, 1 ORDER BY domain, 1
+      `);
+
+      for (const row of sparklines.rows as any[]) {
+        if (!sparklineData[row.domain]) sparklineData[row.domain] = [];
+        sparklineData[row.domain].push(row.down || 0);
+      }
+
+      hasDbData = true;
     } catch {
-      // DB not available — continue with health check data only
+      // DB not available — continue with health check data + demo sparklines
     }
 
     // 3) Build service list
@@ -88,6 +133,11 @@ export async function GET() {
       if (anomaly_level === "major" || status === "down") trend = "spike";
       else if (anomaly_level === "elevated" || status === "degraded") trend = "rising";
 
+      // Use DB sparkline if available, otherwise generate demo data
+      const sparkline_24h = sparklineData[svc.domain]?.length
+        ? sparklineData[svc.domain]
+        : generateDemoSparkline(svc.domain);
+
       return {
         service: svc.name,
         domain: svc.domain,
@@ -99,6 +149,7 @@ export async function GET() {
         baseline,
         anomaly_level,
         trend,
+        sparkline_24h,
       };
     });
 

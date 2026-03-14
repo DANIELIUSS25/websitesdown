@@ -878,6 +878,7 @@ type OutageService = {
   baseline: number;
   anomaly_level: string;
   trend: "stable" | "rising" | "spike";
+  sparkline_24h?: number[];
 };
 type OutageData = { services: OutageService[]; outages: OutageService[]; total: number; operational: number; issues: number; generated_at: string };
 
@@ -885,7 +886,6 @@ function CurrentOutages() {
   const [data, setData] = useState<OutageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<string>("");
-  const [pulseData, setPulseData] = useState<Record<string, number[]>>({});
 
   const fetchOutages = useCallback(async () => {
     try {
@@ -894,20 +894,6 @@ function CurrentOutages() {
         const d: OutageData = await r.json();
         setData(d);
         setLastUpdate(new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }));
-
-        // Fetch sparkline data for all services
-        const pulseResults = await Promise.all(
-          d.services.map(svc =>
-            fetch(`/api/pulse?domain=${encodeURIComponent(svc.domain)}`).then(r => r.ok ? r.json() : null).catch(() => null)
-          )
-        );
-        const map: Record<string, number[]> = {};
-        pulseResults.forEach((r, i) => {
-          if (r?.sparkline_24h) {
-            map[d.services[i].domain] = r.sparkline_24h.map((s: any) => s.reports ?? s.down ?? 0);
-          }
-        });
-        setPulseData(map);
       }
     } catch { /* silent */ }
     setLoading(false);
@@ -993,7 +979,7 @@ function CurrentOutages() {
         {/* Outage cards grid */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
           {sorted.slice(0, 12).map((svc) => (
-            <OutageCard key={svc.domain} svc={svc} sparkline={pulseData[svc.domain]} />
+            <OutageCard key={svc.domain} svc={svc} sparkline={svc.sparkline_24h} />
           ))}
         </div>
       </div>
