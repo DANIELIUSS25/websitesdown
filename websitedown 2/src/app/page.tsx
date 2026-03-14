@@ -783,10 +783,9 @@ function PlatformCard({ platform: p, href, sparkline, status, reports15m, baseli
       <div style={{ background: hov ? S.s2 : S.s1, borderRadius: 11, padding: 16, display: "flex", flexDirection: "column", gap: 10, transition: "background 0.22s", minHeight: 170 }}>
         {/* Header: icon + status badge */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div
-            style={{ width: 36, height: 36, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", background: S.s3, border: `1px solid ${hov ? S.e2 : S.e1}`, color: hov ? S.t1 : S.t3, transition: "all 0.22s", transform: hov ? "scale(1.06)" : "none" }}
-            dangerouslySetInnerHTML={{ __html: IC[p.k] }}
-          />
+          <div style={{ width: 36, height: 36, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", background: S.s3, border: `1px solid ${hov ? S.e2 : S.e1}`, color: hov ? S.t1 : S.t3, transition: "all 0.22s", transform: hov ? "scale(1.06)" : "none" }}>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" dangerouslySetInnerHTML={{ __html: IC[p.k]?.replace(/<\/?svg[^>]*>/g, "") || "" }} />
+          </div>
           <div style={{
             display: "flex", alignItems: "center", gap: 5,
             padding: "3px 8px", borderRadius: 6,
