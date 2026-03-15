@@ -343,15 +343,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── FOOTER ── */}
-      <div style={{ borderTop: `1px solid ${S.e0}`, padding: "28px 0 32px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 980, margin: "0 auto", padding: "0 20px" }}>
-          <div style={{ fontSize: 12, color: S.t4 }}><strong style={{ color: S.t3, fontWeight: 700 }}>WebsiteDown</strong> · AI-powered outage detection</div>
-          <div style={{ display: "flex", gap: 18 }}>
-            {["About", "API", "Contact", "Privacy"].map(l => <a key={l} href={`/${l.toLowerCase()}`} style={{ fontSize: 11.5, fontWeight: 600, color: S.t4, textDecoration: "none" }}>{l}</a>)}
-          </div>
-        </div>
-      </div>
+      {/* ── NEWSLETTER + FOOTER ── */}
+      <NewsletterFooter />
     </div>
   );
 }
@@ -1403,6 +1396,118 @@ function parseStyle(str: string): Record<string, string> {
     if (k && v) result[k] = v;
   });
   return result;
+}
+
+/* ================================================================
+   NEWSLETTER FOOTER — email capture + footer links
+   ================================================================ */
+
+function NewsletterFooter() {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [message, setMessage] = useState("");
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!email.trim() || status === "loading") return;
+
+    setStatus("loading");
+    try {
+      const res = await fetch("/api/newsletter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStatus("success");
+        setMessage(data.message);
+        setEmail("");
+      } else {
+        setStatus("error");
+        setMessage(data.error || "Something went wrong.");
+      }
+    } catch {
+      setStatus("error");
+      setMessage("Connection error. Please try again.");
+    }
+  }
+
+  return (
+    <footer style={{ borderTop: `1px solid ${S.e0}` }}>
+      {/* Newsletter section */}
+      <div style={{ maxWidth: 980, margin: "0 auto", padding: "40px 20px 32px" }}>
+        <div style={{
+          borderRadius: 14, padding: 1,
+          background: `linear-gradient(135deg, rgba(165,180,252,0.1), rgba(129,140,248,0.04), rgba(165,180,252,0.08))`,
+        }}>
+          <div style={{
+            background: S.s1, borderRadius: 13, padding: "28px 28px",
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            flexWrap: "wrap", gap: 20,
+          }}>
+            <div style={{ flex: 1, minWidth: 240 }}>
+              <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.03em", marginBottom: 6 }}>
+                Get notified when major services go down.
+              </div>
+              <div style={{ fontSize: 13, color: S.t3, lineHeight: 1.5 }}>
+                Get outage alerts and monitoring updates.
+              </div>
+            </div>
+            <div style={{ flex: 1, minWidth: 280, maxWidth: 420 }}>
+              {status === "success" ? (
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "12px 16px", borderRadius: 10,
+                  background: S.upBg, border: `1px solid ${S.upBd}`,
+                }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill={S.up}><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: S.up }}>{message}</span>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8 }}>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => { setEmail(e.target.value); if (status === "error") setStatus("idle"); }}
+                    placeholder="you@email.com"
+                    required
+                    style={{
+                      flex: 1, padding: "11px 14px", fontSize: 13, fontWeight: 500,
+                      background: S.s2, color: S.t1, border: `1px solid ${status === "error" ? S.dnBd : S.e1}`,
+                      borderRadius: 10, outline: "none",
+                    }}
+                  />
+                  <button type="submit" disabled={status === "loading"} style={{
+                    padding: "11px 22px", fontSize: 12.5, fontWeight: 800,
+                    background: S.t1, color: S.bg, border: "none", borderRadius: 10,
+                    cursor: status === "loading" ? "not-allowed" : "pointer",
+                    opacity: status === "loading" ? 0.5 : 1,
+                    letterSpacing: "-0.02em", whiteSpace: "nowrap",
+                  }}>
+                    {status === "loading" ? "..." : "Subscribe"}
+                  </button>
+                </form>
+              )}
+              {status === "error" && (
+                <div style={{ fontSize: 11, color: S.dn, marginTop: 6, fontWeight: 500 }}>{message}</div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer links */}
+      <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 20px 32px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ fontSize: 12, color: S.t4 }}><strong style={{ color: S.t3, fontWeight: 700 }}>WebsiteDown</strong> · AI-powered outage detection</div>
+          <div style={{ display: "flex", gap: 18 }}>
+            {["About", "API", "Contact", "Privacy"].map(l => <a key={l} href={`/${l.toLowerCase()}`} style={{ fontSize: 11.5, fontWeight: 600, color: S.t4, textDecoration: "none" }}>{l}</a>)}
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
 }
 
 async function clientCheck(domain: string): Promise<CheckResult> {

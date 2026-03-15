@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type FormEvent } from "react";
 import { tokens } from "@/lib/design-tokens";
 
 const S = { ...tokens, t2: "#b0b8c7" };
@@ -388,17 +388,8 @@ export default function SeoStatusClient({ slug, domain, name, description, categ
         </div>
       </div>
 
-      {/* ── FOOTER ── */}
-      <div style={{ borderTop: `1px solid ${S.e0}`, padding: "24px 0 28px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 860, margin: "0 auto", padding: "0 20px" }}>
-          <div style={{ fontSize: 12, color: S.t4 }}>
-            <strong style={{ color: S.t3, fontWeight: 700 }}>WebsiteDown</strong> · AI-powered outage detection
-          </div>
-          <div style={{ display: "flex", gap: 16 }}>
-            {["About", "API", "Privacy"].map(l => <a key={l} href={`/${l.toLowerCase()}`} style={{ fontSize: 11, fontWeight: 600, color: S.t4, textDecoration: "none" }}>{l}</a>)}
-          </div>
-        </div>
-      </div>
+      {/* ── NEWSLETTER + FOOTER ── */}
+      <SeoNewsletterFooter name={name} />
     </div>
   );
 }
@@ -535,5 +526,113 @@ function SeoOutageChart24h({ pulse, name }: { pulse: PulseData | null; name: str
         })()}
       </div>
     </div>
+  );
+}
+
+/* ── Newsletter Footer for SEO pages ── */
+function SeoNewsletterFooter({ name }: { name: string }) {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [message, setMessage] = useState("");
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!email.trim() || status === "loading") return;
+    setStatus("loading");
+    try {
+      const res = await fetch("/api/newsletter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStatus("success");
+        setMessage(data.message);
+        setEmail("");
+      } else {
+        setStatus("error");
+        setMessage(data.error || "Something went wrong.");
+      }
+    } catch {
+      setStatus("error");
+      setMessage("Connection error. Please try again.");
+    }
+  }
+
+  return (
+    <footer style={{ borderTop: `1px solid ${S.e0}` }}>
+      <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 20px 24px" }}>
+        <div style={{
+          borderRadius: 12, padding: 1,
+          background: `linear-gradient(135deg, rgba(165,180,252,0.1), rgba(129,140,248,0.04), rgba(165,180,252,0.08))`,
+        }}>
+          <div style={{
+            background: S.s1, borderRadius: 11, padding: "22px 22px",
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            flexWrap: "wrap", gap: 16,
+          }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: "-0.03em", marginBottom: 4 }}>
+                Get notified when major services go down.
+              </div>
+              <div style={{ fontSize: 12, color: S.t3 }}>
+                Get outage alerts and monitoring updates.
+              </div>
+            </div>
+            <div style={{ flex: 1, minWidth: 240, maxWidth: 380 }}>
+              {status === "success" ? (
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "10px 14px", borderRadius: 8,
+                  background: S.upBg, border: `1px solid ${S.upBd}`,
+                }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill={S.up}><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: S.up }}>{message}</span>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit} style={{ display: "flex", gap: 6 }}>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => { setEmail(e.target.value); if (status === "error") setStatus("idle"); }}
+                    placeholder="you@email.com"
+                    required
+                    style={{
+                      flex: 1, padding: "9px 12px", fontSize: 12, fontWeight: 500,
+                      background: S.s2, color: S.t1, border: `1px solid ${status === "error" ? S.dnBd : S.e1}`,
+                      borderRadius: 8, outline: "none",
+                    }}
+                  />
+                  <button type="submit" disabled={status === "loading"} style={{
+                    padding: "9px 18px", fontSize: 11.5, fontWeight: 800,
+                    background: S.t1, color: S.bg, border: "none", borderRadius: 8,
+                    cursor: status === "loading" ? "not-allowed" : "pointer",
+                    opacity: status === "loading" ? 0.5 : 1,
+                    letterSpacing: "-0.02em", whiteSpace: "nowrap",
+                  }}>
+                    {status === "loading" ? "..." : "Subscribe"}
+                  </button>
+                </form>
+              )}
+              {status === "error" && (
+                <div style={{ fontSize: 10, color: S.dn, marginTop: 4, fontWeight: 500 }}>{message}</div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 860, margin: "0 auto", padding: "0 20px 28px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ fontSize: 12, color: S.t4 }}>
+            <strong style={{ color: S.t3, fontWeight: 700 }}>WebsiteDown</strong> · AI-powered outage detection
+          </div>
+          <div style={{ display: "flex", gap: 16 }}>
+            {["About", "API", "Privacy"].map(l => <a key={l} href={`/${l.toLowerCase()}`} style={{ fontSize: 11, fontWeight: 600, color: S.t4, textDecoration: "none" }}>{l}</a>)}
+          </div>
+        </div>
+      </div>
+    </footer>
   );
 }
