@@ -7,3 +7,10 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+# Redirect websitesdown.com (with extra 's') to canonical domain
+[[redirects]]
+  from = "https://websitesdown.com/*"
+  to = "https://websitedown.com/:splat"
+  status = 301
+  force = true

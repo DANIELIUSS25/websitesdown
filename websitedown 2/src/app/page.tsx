@@ -68,6 +68,7 @@ export default function HomePage() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const suggestRef = useRef<HTMLDivElement>(null);
   const stageTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Fetch trending data for search suggestions + platform cards (includes sparklines)
@@ -103,6 +104,11 @@ export default function HomePage() {
     const domain = raw.replace(/^https?:\/\//, "").replace(/\/.*$/, "").replace(/^www\./, "").toLowerCase();
     if (!domain) return;
 
+    // Cancel any in-flight requests from previous check
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     clearStageTimers();
     setLoading(true); setCheck(null); setIntel(null); setIntelLoading(true);
     setScanDomain(domain);
@@ -117,11 +123,12 @@ export default function HomePage() {
     });
 
     // Parallel: server check + AI intelligence
-    const checkPromise = fetch(`/api/check?domain=${encodeURIComponent(domain)}`).then(r => r.ok ? r.json() : null).catch(err => { console.error("[check] API error:", err); return null; });
-    const intelPromise = fetch(`/api/intelligence?domain=${encodeURIComponent(domain)}`).then(r => r.ok ? r.json() : null).catch(err => { console.error("[intel] API error:", err); return null; });
+    const checkPromise = fetch(`/api/check?domain=${encodeURIComponent(domain)}`, { signal: controller.signal }).then(r => r.ok ? r.json() : null).catch(err => { if (err.name !== "AbortError") console.error("[check] API error:", err); return null; });
+    const intelPromise = fetch(`/api/intelligence?domain=${encodeURIComponent(domain)}`, { signal: controller.signal }).then(r => r.ok ? r.json() : null).catch(err => { if (err.name !== "AbortError") console.error("[intel] API error:", err); return null; });
 
     // Show check result as soon as it arrives
     const checkResult = await checkPromise;
+    if (controller.signal.aborted) return;
     if (checkResult) {
       setCheck(checkResult);
     } else {
@@ -130,19 +137,28 @@ export default function HomePage() {
 
     // After check completes, advance to stage 5 (Scanning web intelligence)
     clearStageTimers();
+    if (controller.signal.aborted) return;
     setScanStage(prev => Math.max(prev, 5));
 
     // Intel arrives later — advance to stage 6 (Analyzing outage signals)
     stageTimers.current.push(setTimeout(() => setScanStage(prev => Math.max(prev, 6)), 800));
 
     const intelResult = await intelPromise;
+    if (controller.signal.aborted) return;
     clearStageTimers();
     setScanStage(6);
-    setIntel(intelResult);
+    // Verify the intel response matches the domain we asked for
+    if (intelResult && intelResult.domain && intelResult.domain !== domain) {
+      console.warn(`[intel] Domain mismatch: expected ${domain}, got ${intelResult.domain}`);
+      setIntel(null);
+    } else {
+      setIntel(intelResult);
+    }
     setIntelLoading(false);
 
     // Brief pause on final stage then reveal results
     await new Promise(r => setTimeout(r, 600));
+    if (controller.signal.aborted) return;
     setScanStage(7);
     setLoading(false);
   }
