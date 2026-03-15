@@ -88,8 +88,9 @@ export default function SeoStatusClient({ slug, domain, name, description, categ
     <div style={{ position: "relative", zIndex: 1 }}>
       {/* ── NAV ── */}
       <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", maxWidth: 860, margin: "0 auto" }}>
-        <a href="/" style={{ textDecoration: "none", color: S.t1, fontSize: 14, fontWeight: 800, letterSpacing: "-0.04em" }}>
-          WebsiteDown<span style={{ color: S.t4, fontWeight: 600 }}>.com</span>
+        <a href="/" style={{ textDecoration: "none", display: "flex", flexDirection: "column" }}>
+          <span style={{ color: S.t1, fontSize: 14, fontWeight: 800, letterSpacing: "-0.04em" }}>WebsiteDown<span style={{ color: S.t4, fontWeight: 600 }}>.com</span></span>
+          <span style={{ fontSize: 9, fontWeight: 600, color: S.t4, letterSpacing: "0.02em", marginTop: 1 }}>a <span style={{ fontWeight: 700, color: S.t3 }}>Vantlir</span> company</span>
         </a>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           <a href="/internet-status" style={{ fontSize: 12, fontWeight: 600, color: S.t3, textDecoration: "none", padding: "5px 10px" }}>Internet Status</a>
@@ -631,8 +632,9 @@ function SeoNewsletterFooter({ name }: { name: string }) {
 
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "0 20px 28px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ fontSize: 12, color: S.t4 }}>
-            <strong style={{ color: S.t3, fontWeight: 700 }}>WebsiteDown</strong> · AI-powered outage detection
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <div style={{ fontSize: 12, color: S.t4 }}><strong style={{ color: S.t3, fontWeight: 700 }}>WebsiteDown</strong> · AI-powered outage detection</div>
+            <div style={{ fontSize: 9, color: S.t4, fontWeight: 600 }}>a <span style={{ fontWeight: 700, color: S.t3 }}>Vantlir</span> company</div>
           </div>
           <div style={{ display: "flex", gap: 16 }}>
             {["About", "API", "Privacy"].map(l => <a key={l} href={`/${l.toLowerCase()}`} style={{ fontSize: 11, fontWeight: 600, color: S.t4, textDecoration: "none" }}>{l}</a>)}
