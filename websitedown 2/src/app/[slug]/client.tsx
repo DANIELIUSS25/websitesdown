@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, type FormEvent } from "react";
 import { tokens } from "@/lib/design-tokens";
 import { PoweredByVantlir } from "@/components/vantlir";
+import { VantlirLogo } from "@/components/VantlirLogo";
 
 const S = { ...tokens, t2: "#b0b8c7" };
 
@@ -88,10 +89,16 @@ export default function SeoStatusClient({ slug, domain, name, description, categ
     <div style={{ position: "relative", zIndex: 1 }}>
       {/* ── NAV ── */}
       <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", maxWidth: 860, margin: "0 auto" }}>
-        <a href="/" style={{ textDecoration: "none", display: "flex", flexDirection: "column" }}>
-          <span style={{ color: S.t1, fontSize: 14, fontWeight: 800, letterSpacing: "-0.04em" }}>WebsiteDown<span style={{ color: S.t4, fontWeight: 600 }}>.com</span></span>
-          <span style={{ fontSize: 11, fontWeight: 600, color: S.t2, letterSpacing: "0.03em", marginTop: 3 }}>a <span style={{ fontWeight: 800, color: S.ac }}>Vantlir</span> company</span>
-        </a>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <a href="/" style={{ textDecoration: "none", color: S.t1, fontSize: 14, fontWeight: 800, letterSpacing: "-0.04em" }}>
+            WebsiteDown<span style={{ color: S.t4, fontWeight: 600 }}>.com</span>
+          </a>
+          <span style={{ width: 1, height: 18, background: S.e2, flexShrink: 0 }} />
+          <a href="https://vantlir.com" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 5, opacity: 0.7, transition: "opacity 0.15s" }} onMouseEnter={e => e.currentTarget.style.opacity = "1"} onMouseLeave={e => e.currentTarget.style.opacity = "0.7"}>
+            <VantlirLogo size={13} showWord={false} />
+            <span style={{ fontSize: 9.5, fontWeight: 600, color: S.t3, letterSpacing: "0.01em", lineHeight: 1 }}>Powered by <span style={{ fontWeight: 800 }}>Vantlir</span></span>
+          </a>
+        </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           <a href="/internet-status" style={{ fontSize: 12, fontWeight: 600, color: S.t3, textDecoration: "none", padding: "5px 10px" }}>Internet Status</a>
           <a href="/pricing" style={{ fontSize: 12, fontWeight: 600, color: S.t3, textDecoration: "none", padding: "5px 10px" }}>Pricing</a>
@@ -632,10 +639,7 @@ function SeoNewsletterFooter({ name }: { name: string }) {
 
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "0 20px 28px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <div style={{ fontSize: 12, color: S.t4 }}><strong style={{ color: S.t3, fontWeight: 700 }}>WebsiteDown</strong> · AI-powered outage detection</div>
-            <div style={{ fontSize: 11, color: S.t2, fontWeight: 600 }}>a <span style={{ fontWeight: 800, color: S.ac }}>Vantlir</span> company</div>
-          </div>
+          <div style={{ fontSize: 12, color: S.t4 }}><strong style={{ color: S.t3, fontWeight: 700 }}>WebsiteDown</strong> · AI-powered outage detection</div>
           <div style={{ display: "flex", gap: 16 }}>
             {["About", "API", "Privacy"].map(l => <a key={l} href={`/${l.toLowerCase()}`} style={{ fontSize: 11, fontWeight: 600, color: S.t4, textDecoration: "none" }}>{l}</a>)}
             <span style={{ width: 1, height: 12, background: S.e1 }} />
