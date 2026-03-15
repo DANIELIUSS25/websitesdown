@@ -202,3 +202,177 @@ console.error("[auth/login]", err.message);
 ---
 
 **Overall Assessment:** The project has a strong security posture for its stage. The most urgent fix is **#1 (rate limiting on auth endpoints)** — this is a well-known attack vector. Fixes #2 and #3 should follow. Items #4–#6 are hardening measures for production readiness.
+
+---
+
+# Frontend Exposure Audit
+
+**Date:** 2026-03-15
+**Scope:** All client-side code (`"use client"` components), shared libs imported by client, and `NEXT_PUBLIC_` env vars.
+
+---
+
+## 1. Client Components Audited (12 files)
+
+| File | Secrets? | `process.env`? | Sensitive imports? |
+|------|----------|----------------|--------------------|
+| `src/app/page.tsx` | NONE | NONE | design-tokens, constants (safe) |
+| `src/app/[slug]/client.tsx` | NONE | NONE | design-tokens, vantlir (safe) |
+| `src/app/status/[domain]/client.tsx` | NONE | NONE | design-tokens (safe) |
+| `src/app/internet-status/client.tsx` | NONE | NONE | design-tokens, constants (safe) |
+| `src/app/dashboard/page.tsx` | NONE | NONE | design-tokens (safe) |
+| `src/app/dashboard/settings/page.tsx` | NONE | NONE | design-tokens (safe) |
+| `src/app/dashboard/monitors/[id]/page.tsx` | NONE | NONE | design-tokens (safe) |
+| `src/app/auth/login/page.tsx` | NONE | NONE | design-tokens (safe) |
+| `src/app/auth/signup/page.tsx` | NONE | NONE | design-tokens (safe) |
+| `src/app/pricing/page.tsx` | NONE | NONE | design-tokens (safe) |
+| `src/components/vantlir.tsx` | NONE | NONE | — |
+| `src/components/VantlirLogo.tsx` | NONE | NONE | — |
+| `client.tsx` (root) | NONE | NONE | — |
+
+**Result: PASS — Zero `process.env` references in any client component.**
+
+---
+
+## 2. Hardcoded Secrets Scan
+
+Searched all client files for: API keys, tokens, Stripe keys, database URLs, passwords, secrets, webhook URLs.
+
+| Pattern | Found in client? |
+|---------|-----------------|
+| `sk_live`, `sk_test`, `pk_live`, `pk_test` | NO |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | NO |
+| `PERPLEXITY_API_KEY` | NO |
+| `RESEND_API_KEY` | NO |
+| `TELEGRAM_BOT_TOKEN` | NO |
+| `JWT_SECRET` | NO |
+| `DATABASE_URL`, `postgres://`, `mongodb://` | NO |
+| `Bearer ` (hardcoded tokens) | NO |
+| Hardcoded API keys or long hex/base64 strings | NO |
+
+**Result: PASS — No secrets hardcoded in any client-side code.**
+
+---
+
+## 3. Environment Variables — Client Bundle Exposure
+
+### `NEXT_PUBLIC_` Variables
+
+Only **one** `NEXT_PUBLIC_` variable exists in the entire project:
+
+| Variable | Value | Sensitive? | Used in client? |
+|----------|-------|-----------|-----------------|
+| `NEXT_PUBLIC_SITE_URL` | `https://websitedown.com` | NO (public URL) | Yes — `layout.tsx` (server), used for metadata |
+
+**Result: PASS — The only `NEXT_PUBLIC_` variable is the public site URL.**
+
+### Server-only Environment Variables (NOT exposed to client)
+
+All of the following use `process.env` exclusively in server-side files (`/api/` routes and `/lib/` modules imported only by routes):
+
+| Variable | Used in | Client accessible? |
+|----------|---------|-------------------|
+| `DATABASE_URL` / `NETLIFY_DATABASE_URL` | `lib/db.ts` | NO — only API routes |
+| `JWT_SECRET` | `lib/auth.ts` | NO — only API routes |
+| `STRIPE_SECRET_KEY` | `api/billing/*` | NO |
+| `STRIPE_WEBHOOK_SECRET` | `api/billing/webhook` | NO |
+| `STRIPE_PRICE_PRO` | `lib/plans.ts` | NO — only imported by API routes |
+| `STRIPE_PRICE_PRO_PLUS` | `lib/plans.ts` | NO — only imported by API routes |
+| `PERPLEXITY_API_KEY` | `lib/perplexity-intelligence.ts`, `api/pulse/*/summary` | NO |
+| `RESEND_API_KEY` | `lib/alerts.ts`, `api/newsletter` | NO |
+| `TELEGRAM_BOT_TOKEN` | `lib/alerts.ts` | NO |
+| `CRON_SECRET` | `api/cron/*`, `api/migrate` | NO |
+| `FINGERPRINT_SALT` | `api/reports` | NO |
+
+**Result: PASS — All sensitive env vars are server-only. None use `NEXT_PUBLIC_` prefix.**
+
+---
+
+## 4. Client-Side API Calls — Are Sensitive Operations Server-Side?
+
+All client components communicate with the backend exclusively through `/api/*` fetch calls. No client component directly accesses databases, third-party APIs, or secret-bearing services.
+
+| Client Operation | API Endpoint | Sensitive work server-side? |
+|-----------------|-------------|---------------------------|
+| Domain check | `GET /api/check?domain=` | YES — server-side HTTP probe |
+| AI intelligence | `GET /api/intelligence?domain=` | YES — Perplexity API key used server-side |
+| Submit report | `POST /api/reports` | YES — DB write, fingerprint hashing |
+| Login | `POST /api/auth/login` | YES — password verify, JWT sign |
+| Signup | `POST /api/auth/signup` | YES — password hash, DB write |
+| Stripe checkout | `POST /api/billing/checkout` | YES — Stripe API with secret key |
+| Alert channels | `GET/POST /api/alerts/channels` | YES — DB queries |
+| Monitor CRUD | `GET/POST/PUT/DELETE /api/monitors/*` | YES — DB queries |
+| Newsletter | `POST /api/newsletter` | YES — Resend API |
+
+**Result: PASS — All sensitive operations are handled server-side.**
+
+---
+
+## 5. Findings — Frontend Specific
+
+### Finding F1. [MEDIUM] Discord Webhook URLs Visible in Client State
+
+**File:** `src/app/dashboard/settings/page.tsx:125-126`
+
+```typescript
+const cfg = typeof ch.config === "string" ? JSON.parse(ch.config) : ch.config;
+const display = ch.type === "email" ? cfg.email : ch.type === "telegram" ? `Chat ${cfg.chat_id}` : "Webhook configured";
+```
+
+The full `config` object (including the complete Discord webhook URL) is fetched into client state from `GET /api/alerts/channels`. While the display text shows "Webhook configured" for Discord, the **raw webhook URL is still in the React state** and visible in browser DevTools > Network tab.
+
+This is a frontend surface of the server-side finding #3 (Alert Channel Config Leaked in API Response).
+
+**Severity:** MEDIUM — Discord webhook URLs are bearer tokens. Anyone who intercepts or inspects the response can post to the user's Discord channel.
+
+**Recommended Fix:** Mask on the server side (see Finding #3 in the main audit). The client already handles masked display correctly.
+
+---
+
+### Finding F2. [LOW] Client-Side `console.error` Logs May Aid Debugging Attackers
+
+**Files:**
+- `src/app/page.tsx:128-129` — logs API fetch errors
+- `src/app/status/[domain]/client.tsx:66-67` — logs recheck/intel errors
+- `src/app/internet-status/client.tsx:128` — logs fetch failures
+
+```typescript
+console.error("[check] API error:", err);
+console.error("[status] Recheck failed:", err);
+```
+
+These log error objects to the browser console. While not directly exploitable, they could reveal:
+- API response bodies with error details
+- Network error information
+- Stack traces in development
+
+**Severity:** LOW — standard pattern, but production client code should minimize console output.
+
+**Recommended Fix:** In production, suppress or reduce client-side error logging, or log only error messages, not full objects.
+
+---
+
+## 6. Summary
+
+### Frontend Exposure Audit Results
+
+| Check | Result |
+|-------|--------|
+| API keys in client code | **PASS** — None found |
+| Secret tokens in client code | **PASS** — None found |
+| Stripe secret key exposure | **PASS** — Server-only |
+| Database URLs in client | **PASS** — Server-only |
+| Private endpoints callable from client | **PASS** — All behind `/api/*` |
+| `NEXT_PUBLIC_` prefix misuse | **PASS** — Only used for site URL |
+| Sensitive operations on server | **PASS** — All sensitive logic server-side |
+| `process.env` in client components | **PASS** — Zero references |
+| Discord webhook URLs in client state | **MEDIUM** — Full URL in API response |
+| Client console.error output | **LOW** — Logs full error objects |
+
+### Files That Could Leak Sensitive Data
+
+| File | Risk | What Could Leak | Via |
+|------|------|----------------|-----|
+| `src/app/dashboard/settings/page.tsx` | MEDIUM | Discord webhook URLs, Telegram chat IDs | API response stored in React state, visible in DevTools |
+
+All other client files are clean — no secrets, no env vars, no direct API calls to external services.
