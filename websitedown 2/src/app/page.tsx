@@ -173,8 +173,9 @@ export default function HomePage() {
 
       {/* ── NAV ── */}
       <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px", maxWidth: 980, margin: "0 auto" }}>
-        <a href="/" style={{ textDecoration: "none", color: S.t1, fontSize: 14, fontWeight: 800, letterSpacing: "-0.04em" }}>
-          WebsiteDown<span style={{ color: S.t4, fontWeight: 600 }}>.com</span>
+        <a href="/" style={{ textDecoration: "none", display: "flex", flexDirection: "column" }}>
+          <span style={{ color: S.t1, fontSize: 14, fontWeight: 800, letterSpacing: "-0.04em" }}>WebsiteDown<span style={{ color: S.t4, fontWeight: 600 }}>.com</span></span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: S.t2, letterSpacing: "0.03em", marginTop: 3 }}>a <span style={{ fontWeight: 800, color: S.ac }}>Vantlir</span> company</span>
         </a>
         <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
           <a href="#outages" style={{ padding: "6px 12px", fontSize: 12.5, fontWeight: 600, color: S.t3, textDecoration: "none", borderRadius: 8 }}>Outages</a>
@@ -1506,7 +1507,10 @@ function NewsletterFooter() {
       {/* Footer links */}
       <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 20px 32px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-          <div style={{ fontSize: 12, color: S.t4 }}><strong style={{ color: S.t3, fontWeight: 700 }}>WebsiteDown</strong> · AI-powered outage detection</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <div style={{ fontSize: 12, color: S.t4 }}><strong style={{ color: S.t3, fontWeight: 700 }}>WebsiteDown</strong> · AI-powered outage detection</div>
+            <div style={{ fontSize: 11, color: S.t2, fontWeight: 600 }}>a <span style={{ fontWeight: 800, color: S.ac }}>Vantlir</span> company</div>
+          </div>
           <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
             {["About", "API", "Contact", "Privacy"].map(l => <a key={l} href={`/${l.toLowerCase()}`} style={{ fontSize: 11.5, fontWeight: 600, color: S.t4, textDecoration: "none" }}>{l}</a>)}
             <span style={{ width: 1, height: 12, background: S.e1 }} />
