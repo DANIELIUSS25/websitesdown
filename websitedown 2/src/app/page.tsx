@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, type FormEvent } from "react";
 import { tokens } from "@/lib/design-tokens";
+import { PoweredByVantlir } from "@/components/vantlir";
 
 /* ================================================================
    BRAND ICONS — optically balanced SVG system
@@ -269,6 +270,11 @@ export default function HomePage() {
             {scanStage === 7 && check && <CheckCard data={check} />}
             {scanStage === 7 && intel && <IntelCard data={intel} />}
             {scanStage === 7 && !intelLoading && !intel && check && <IntelUnavailable />}
+            {scanStage === 7 && (intel || (!intelLoading && check)) && (
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+                <PoweredByVantlir />
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -1499,10 +1505,12 @@ function NewsletterFooter() {
 
       {/* Footer links */}
       <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 20px 32px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
           <div style={{ fontSize: 12, color: S.t4 }}><strong style={{ color: S.t3, fontWeight: 700 }}>WebsiteDown</strong> · AI-powered outage detection</div>
-          <div style={{ display: "flex", gap: 18 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
             {["About", "API", "Contact", "Privacy"].map(l => <a key={l} href={`/${l.toLowerCase()}`} style={{ fontSize: 11.5, fontWeight: 600, color: S.t4, textDecoration: "none" }}>{l}</a>)}
+            <span style={{ width: 1, height: 12, background: S.e1 }} />
+            <PoweredByVantlir />
           </div>
         </div>
       </div>

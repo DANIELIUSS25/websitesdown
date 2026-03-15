@@ -5,30 +5,31 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://websitedown.com";
 
 export const metadata: Metadata = {
   title: "WebsiteDown — Is it down right now?",
-  description: "Instantly check if any website is down. AI-powered outage detection with real-time web intelligence.",
+  description: "Instantly check if any website is down. Real-time outage detection powered by Vantlir intelligence.",
   metadataBase: new URL(siteUrl),
   icons: {
     icon: "/favicon.svg",
   },
   openGraph: {
     title: "WebsiteDown — Is it down right now?",
-    description: "Instantly check if any website is down. AI-powered outage detection with real-time web intelligence.",
+    description: "Real-time website outage detection powered by Vantlir intelligence.",
     url: siteUrl,
     siteName: "WebsiteDown",
     type: "website",
+    locale: "en_US",
     images: [
       {
         url: "/og-image.svg",
         width: 1200,
         height: 630,
-        alt: "WebsiteDown — Real-time website status checks with AI outage detection",
+        alt: "WebsiteDown — Real-time website outage detection powered by Vantlir",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
     title: "WebsiteDown — Is it down right now?",
-    description: "Real-time website status checks + AI-powered outage detection. Find out in seconds.",
+    description: "Real-time website outage detection powered by Vantlir intelligence.",
     images: ["/og-image.svg"],
   },
 };

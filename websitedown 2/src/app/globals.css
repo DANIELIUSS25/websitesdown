@@ -56,6 +56,7 @@ body::after {
 @keyframes skelP { 0%,100% { opacity: .35; } 50% { opacity: .7; } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
 @keyframes scanSpin { to { transform: rotate(360deg); } }
+@keyframes vl-logo-pulse { 0%,100% { filter: drop-shadow(0 0 4px rgba(98,197,255,0.45)); } 50% { filter: drop-shadow(0 0 9px rgba(98,197,255,0.80)); } }
 
 @media (max-width: 640px) {
   #platforms .platform-grid { grid-template-columns: repeat(2, 1fr) !important; }

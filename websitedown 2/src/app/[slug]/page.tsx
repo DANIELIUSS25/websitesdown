@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!page) return {};
 
   const title = `Is ${page.name} Down Right Now? Live Status Check | WebsiteDown`;
-  const description = `Check if ${page.name} is down right now. Real-time server status, AI-powered outage detection, user reports, and troubleshooting tips for ${page.domain}.`;
+  const description = `Check if ${page.name} is down right now. Real-time outage detection powered by Vantlir intelligence — server status, user reports, and troubleshooting for ${page.domain}.`;
 
   return {
     title,
@@ -44,16 +44,17 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     alternates: { canonical: `https://websitedown.com/${slug}` },
     openGraph: {
       title: `Is ${page.name} Down Right Now? — Live Status Check`,
-      description: `Live ${page.name} status check with server probe, AI outage intelligence, and community reports. Find out if ${page.domain} is down.`,
+      description: `Live ${page.name} status check powered by Vantlir intelligence. Server probe, outage detection, and community reports for ${page.domain}.`,
       url: `https://websitedown.com/${slug}`,
       siteName: "WebsiteDown",
       type: "website",
-      images: [{ url: "/og-image.svg", width: 1200, height: 630, alt: `Is ${page.name} Down? — WebsiteDown Live Status Check` }],
+      locale: "en_US",
+      images: [{ url: "/og-image.svg", width: 1200, height: 630, alt: `Is ${page.name} Down? — WebsiteDown powered by Vantlir` }],
     },
     twitter: {
       card: "summary_large_image",
       title: `Is ${page.name} Down? | WebsiteDown`,
-      description: `Real-time ${page.name} status — server check + AI intelligence`,
+      description: `Real-time ${page.name} outage detection powered by Vantlir intelligence.`,
       images: ["/og-image.svg"],
     },
   };
