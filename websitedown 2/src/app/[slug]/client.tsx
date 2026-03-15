@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, type FormEvent } from "react";
 import { tokens } from "@/lib/design-tokens";
+import { PoweredByVantlir } from "@/components/vantlir";
 
 const S = { ...tokens, t2: "#b0b8c7" };
 
@@ -266,6 +267,11 @@ export default function SeoStatusClient({ slug, domain, name, description, categ
                 </div>
               </div>
             )}
+          </div>
+        )}
+        {intel && (
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16, marginTop: -8 }}>
+            <PoweredByVantlir />
           </div>
         )}
 
@@ -630,6 +636,8 @@ function SeoNewsletterFooter({ name }: { name: string }) {
           </div>
           <div style={{ display: "flex", gap: 16 }}>
             {["About", "API", "Privacy"].map(l => <a key={l} href={`/${l.toLowerCase()}`} style={{ fontSize: 11, fontWeight: 600, color: S.t4, textDecoration: "none" }}>{l}</a>)}
+            <span style={{ width: 1, height: 12, background: S.e1 }} />
+            <PoweredByVantlir />
           </div>
         </div>
       </div>
