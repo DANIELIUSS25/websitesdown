@@ -48,11 +48,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       url: `https://websitedown.com/${slug}`,
       siteName: "WebsiteDown",
       type: "website",
+      images: [{ url: "/og-image.svg", width: 1200, height: 630, alt: `Is ${page.name} Down? — WebsiteDown Live Status Check` }],
     },
     twitter: {
       card: "summary_large_image",
       title: `Is ${page.name} Down? | WebsiteDown`,
       description: `Real-time ${page.name} status — server check + AI intelligence`,
+      images: ["/og-image.svg"],
     },
   };
 }
@@ -142,7 +144,7 @@ export default async function SeoStatusPage({ params }: { params: Promise<{ slug
     ],
   };
 
-  // WebSite schema for sitelinks search
+  // WebPage schema
   const webPageSchema = {
     "@context": "https://schema.org",
     "@type": "WebPage",
@@ -153,10 +155,34 @@ export default async function SeoStatusPage({ params }: { params: Promise<{ slug
     about: { "@type": "WebApplication", name: page.name, url: `https://${page.domain}` },
   };
 
+  // WebApplication schema for the checked service
+  const webAppSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    name: page.name,
+    url: `https://${page.domain}`,
+    applicationCategory: category || "WebApplication",
+    operatingSystem: "All",
+    ...(service?.statusPage && { featureList: `Status page: ${service.statusPage}` }),
+  };
+
+  // Organization schema for WebsiteDown
+  const orgSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "WebsiteDown",
+    url: "https://websitedown.com",
+    logo: "https://websitedown.com/og-image.svg",
+    description: "AI-powered website outage detection and real-time status monitoring.",
+    sameAs: [],
+  };
+
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(webPageSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(webAppSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(orgSchema) }} />
       <SeoStatusClient
         slug={slug}
         domain={page.domain}

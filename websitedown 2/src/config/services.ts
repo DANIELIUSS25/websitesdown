@@ -34,6 +34,7 @@ export const SERVICES: TrackedService[] = [
   // Cloud / Dev
   { domain: "github.com", name: "GitHub", slug: "github", category: "dev", icon: "github", statusPage: "https://www.githubstatus.com", keywords: ["github down", "is github down"] },
   { domain: "aws.amazon.com", name: "AWS", slug: "aws", category: "cloud", icon: "aws", keywords: ["aws down", "aws outage"] },
+  { domain: "cloudflare.com", name: "Cloudflare", slug: "cloudflare", category: "cloud", icon: "cloudflare", statusPage: "https://www.cloudflarestatus.com", keywords: ["cloudflare down", "is cloudflare down", "cloudflare outage"] },
   { domain: "vercel.com", name: "Vercel", slug: "vercel", category: "dev", icon: "vercel", keywords: ["vercel down"] },
   { domain: "netlify.com", name: "Netlify", slug: "netlify", category: "dev", icon: "netlify", keywords: ["netlify down"] },
   // Communication
