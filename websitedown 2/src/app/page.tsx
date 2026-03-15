@@ -21,14 +21,14 @@ const IC: Record<string, string> = {
 
 /* ── Data ── */
 const PLATFORMS = [
-  { n: "Discord",     d: "discord.com",     k: "discord" },
-  { n: "Twitter / X", d: "x.com",           k: "twitter" },
-  { n: "Instagram",   d: "instagram.com",   k: "instagram" },
-  { n: "YouTube",     d: "youtube.com",     k: "youtube" },
-  { n: "TikTok",      d: "tiktok.com",      k: "tiktok" },
-  { n: "Reddit",      d: "reddit.com",      k: "reddit" },
-  { n: "ChatGPT",     d: "chat.openai.com", k: "chatgpt" },
-  { n: "Twitch",      d: "twitch.tv",       k: "twitch" },
+  { n: "Discord",     d: "discord.com",     k: "discord",   slug: "is-discord-down",   color: "#5865F2" },
+  { n: "Twitter / X", d: "x.com",           k: "twitter",   slug: "is-twitter-down",   color: "#eff3f4" },
+  { n: "Instagram",   d: "instagram.com",   k: "instagram", slug: "is-instagram-down", color: "#E4405F" },
+  { n: "YouTube",     d: "youtube.com",     k: "youtube",   slug: "is-youtube-down",   color: "#FF0000" },
+  { n: "TikTok",      d: "tiktok.com",      k: "tiktok",    slug: "is-tiktok-down",    color: "#eff3f4" },
+  { n: "Reddit",      d: "reddit.com",      k: "reddit",    slug: "is-reddit-down",    color: "#FF4500" },
+  { n: "ChatGPT",     d: "chat.openai.com", k: "chatgpt",   slug: "is-chatgpt-down",   color: "#10A37F" },
+  { n: "Twitch",      d: "twitch.tv",       k: "twitch",    slug: "is-twitch-down",    color: "#9146FF" },
 ];
 
 const STATUS_PILLS = [
@@ -300,7 +300,7 @@ export default function HomePage() {
                 <PlatformCard
                   key={p.k}
                   platform={p}
-                  href={`/status/${p.d}`}
+                  href={`/${p.slug}`}
                   sparkline={svcData?.sparkline_24h}
                   status={svcData?.status as any}
                   reports15m={svcData?.reports_15m ?? 0}
@@ -789,18 +789,29 @@ function PlatformCard({ platform: p, href, sparkline, status, reports15m, baseli
   // Sparkline color based on status
   const sparkColor = status === "down" ? S.dn : (status === "degraded" || anomalyLevel !== "normal") ? S.warn : S.ac;
 
+  // Brand color with opacity for icon background on hover
+  const brandColor = p.color;
+  const brandBg = `${brandColor}12`;
+  const brandBorder = `${brandColor}20`;
+
   return (
     <a href={href} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} style={{
-      borderRadius: 12, padding: 1, cursor: "pointer", transition: "all 0.22s", textDecoration: "none", color: S.t1, display: "block",
-      background: hov ? `linear-gradient(145deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03), rgba(255,255,255,0.07))` : S.e1,
-      transform: hov ? "translateY(-3px)" : "none",
-      boxShadow: hov ? "0 16px 40px rgba(0,0,0,0.3)" : "none",
+      borderRadius: 14, padding: 1, cursor: "pointer", transition: "all 0.25s cubic-bezier(0.16,1,0.3,1)", textDecoration: "none", color: S.t1, display: "block",
+      background: hov ? `linear-gradient(145deg, ${brandColor}18, ${brandColor}08, ${brandColor}14)` : S.e1,
+      transform: hov ? "translateY(-4px) scale(1.01)" : "none",
+      boxShadow: hov ? `0 20px 48px rgba(0,0,0,0.35), 0 0 0 1px ${brandColor}15` : "none",
     }}>
-      <div style={{ background: hov ? S.s2 : S.s1, borderRadius: 11, padding: 16, display: "flex", flexDirection: "column", gap: 10, transition: "background 0.22s", minHeight: 170 }}>
+      <div style={{ background: hov ? S.s2 : S.s1, borderRadius: 13, padding: 16, display: "flex", flexDirection: "column", gap: 10, transition: "background 0.25s", minHeight: 170 }}>
         {/* Header: icon + status badge */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ width: 36, height: 36, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", background: S.s3, border: `1px solid ${hov ? S.e2 : S.e1}`, color: hov ? S.t1 : S.t3, transition: "all 0.22s", transform: hov ? "scale(1.06)" : "none" }}>
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" dangerouslySetInnerHTML={{ __html: IC[p.k]?.replace(/<\/?svg[^>]*>/g, "") || "" }} />
+          <div style={{
+            width: 38, height: 38, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center",
+            background: hov ? brandBg : S.s3,
+            border: `1px solid ${hov ? brandBorder : S.e1}`,
+            transition: "all 0.25s cubic-bezier(0.16,1,0.3,1)",
+            transform: hov ? "scale(1.08)" : "none",
+          }}>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill={hov ? brandColor : S.t3} style={{ transition: "fill 0.25s" }} dangerouslySetInnerHTML={{ __html: IC[p.k]?.replace(/<\/?svg[^>]*>/g, "") || "" }} />
           </div>
           <div style={{
             display: "flex", alignItems: "center", gap: 5,
@@ -808,8 +819,8 @@ function PlatformCard({ platform: p, href, sparkline, status, reports15m, baseli
             background: badge.bg, border: `1px solid ${badge.border}`,
             fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: badge.color,
           }}>
-            <span style={{ width: 5, height: 5, borderRadius: "50%", background: badge.color, boxShadow: `0 0 6px ${badge.color}44`, display: "inline-block", position: "relative" }}>
-              {status === "down" && <span style={{ position: "absolute", inset: -1, borderRadius: "50%", background: badge.color, animation: "livePulse 1.5s ease-in-out infinite" }} />}
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: badge.color, boxShadow: `0 0 8px ${badge.color}55`, display: "inline-block", position: "relative" }}>
+              {status === "down" && <span style={{ position: "absolute", inset: -2, borderRadius: "50%", background: badge.color, animation: "livePulse 1.5s ease-in-out infinite" }} />}
             </span>
             {badge.label}
           </div>
@@ -817,7 +828,7 @@ function PlatformCard({ platform: p, href, sparkline, status, reports15m, baseli
 
         {/* Platform name + domain */}
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-0.02em" }}>{p.n}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-0.02em", transition: "color 0.2s", color: hov ? brandColor : S.t1 }}>{p.n}</div>
           <div style={{ fontFamily: S.mono, fontSize: 10.5, color: S.t4, marginTop: 1 }}>{p.d}</div>
         </div>
 

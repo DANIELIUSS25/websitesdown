@@ -170,6 +170,22 @@ export const SEO_PAGES: SeoPage[] = [
     ],
     keywords: ["is aws down", "aws down", "aws outage", "aws not working", "amazon web services down", "aws status", "aws service health", "why is aws not working"],
   },
+  {
+    slug: "is-twitch-down",
+    domain: "twitch.tv",
+    name: "Twitch",
+    description: "Twitch is the world's leading live streaming platform for gamers, creators, and communities with millions of daily active viewers.",
+    troubleshooting: [
+      "Refresh the page or force-close and reopen the Twitch app",
+      "Check if the issue is with a specific stream or the entire platform",
+      "Clear your browser cache and cookies for twitch.tv",
+      "Try lowering the stream quality — bandwidth issues can cause buffering",
+      "Disable browser extensions like ad blockers that may interfere with Twitch",
+      "Try the Twitch mobile app if the web version isn't working",
+      "Check Twitch's official status at status.twitch.tv for incident updates",
+    ],
+    keywords: ["is twitch down", "twitch down", "twitch outage", "twitch not working", "twitch status", "twitch buffering", "why is twitch not working"],
+  },
 ];
 
 export const SEO_PAGE_MAP = new Map(SEO_PAGES.map(p => [p.slug, p]));
