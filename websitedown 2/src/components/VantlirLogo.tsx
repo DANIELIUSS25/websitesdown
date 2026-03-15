@@ -6,7 +6,7 @@ export function VantlirLogo({
   size = 28,
   showWord = true,
   wordSize = 16
-}) {
+}: { size?: number; showWord?: boolean; wordSize?: number }) {
   const uid = useId().replace(/:/g, "");
   const gradL = `vl-l-${uid}`;
   const gradR = `vl-r-${uid}`;
