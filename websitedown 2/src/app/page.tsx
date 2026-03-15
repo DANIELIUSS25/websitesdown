@@ -21,14 +21,14 @@ const IC: Record<string, string> = {
 
 /* ── Data ── */
 const PLATFORMS = [
-  { n: "Discord",     d: "discord.com",     k: "discord" },
-  { n: "Twitter / X", d: "x.com",           k: "twitter" },
-  { n: "Instagram",   d: "instagram.com",   k: "instagram" },
-  { n: "YouTube",     d: "youtube.com",     k: "youtube" },
-  { n: "TikTok",      d: "tiktok.com",      k: "tiktok" },
-  { n: "Reddit",      d: "reddit.com",      k: "reddit" },
-  { n: "ChatGPT",     d: "chat.openai.com", k: "chatgpt" },
-  { n: "Twitch",      d: "twitch.tv",       k: "twitch" },
+  { n: "Discord",     d: "discord.com",     k: "discord",   slug: "is-discord-down",   color: "#5865F2" },
+  { n: "Twitter / X", d: "x.com",           k: "twitter",   slug: "is-twitter-down",   color: "#eff3f4" },
+  { n: "Instagram",   d: "instagram.com",   k: "instagram", slug: "is-instagram-down", color: "#E4405F" },
+  { n: "YouTube",     d: "youtube.com",     k: "youtube",   slug: "is-youtube-down",   color: "#FF0000" },
+  { n: "TikTok",      d: "tiktok.com",      k: "tiktok",    slug: "is-tiktok-down",    color: "#eff3f4" },
+  { n: "Reddit",      d: "reddit.com",      k: "reddit",    slug: "is-reddit-down",    color: "#FF4500" },
+  { n: "ChatGPT",     d: "chat.openai.com", k: "chatgpt",   slug: "is-chatgpt-down",   color: "#10A37F" },
+  { n: "Twitch",      d: "twitch.tv",       k: "twitch",    slug: "is-twitch-down",    color: "#9146FF" },
 ];
 
 const STATUS_PILLS = [
@@ -64,33 +64,18 @@ export default function HomePage() {
   const [scanStage, setScanStage] = useState(0); // 0=idle, 1-6=stages, 7=done
   const [scanDomain, setScanDomain] = useState("");
   const [scanStart, setScanStart] = useState(0);
-  const [trendingData, setTrendingData] = useState<{ service: string; domain: string; status: string; reports_1h: number; anomaly_level: string }[]>([]);
+  const [trendingData, setTrendingData] = useState<{ service: string; domain: string; status: string; reports_15m: number; reports_1h: number; baseline: number; anomaly_level: string; sparkline_24h?: number[] }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const suggestRef = useRef<HTMLDivElement>(null);
   const stageTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const [sparklines, setSparklines] = useState<Record<string, number[]>>({});
-
-  // Fetch trending data for search suggestions + sparklines for platform cards
+  // Fetch trending data for search suggestions + platform cards (includes sparklines)
   useEffect(() => {
     fetch("/api/outages").then(r => r.ok ? r.json() : null).then(d => {
       if (d?.services) setTrendingData(d.services);
     }).catch(() => {});
-    // Fetch sparkline data for each platform
-    Promise.all(
-      PLATFORMS.map(p =>
-        fetch(`/api/pulse?domain=${encodeURIComponent(p.d)}`).then(r => r.ok ? r.json() : null).catch(() => null)
-      )
-    ).then(results => {
-      const map: Record<string, number[]> = {};
-      results.forEach((r, i) => {
-        if (r?.sparkline_24h) {
-          map[PLATFORMS[i].d] = r.sparkline_24h.map((s: any) => s.reports ?? s.down ?? 0);
-        }
-      });
-      setSparklines(map);
-    });
   }, []);
 
   // Close suggestions on click outside
@@ -119,6 +104,11 @@ export default function HomePage() {
     const domain = raw.replace(/^https?:\/\//, "").replace(/\/.*$/, "").replace(/^www\./, "").toLowerCase();
     if (!domain) return;
 
+    // Cancel any in-flight requests from previous check
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     clearStageTimers();
     setLoading(true); setCheck(null); setIntel(null); setIntelLoading(true);
     setScanDomain(domain);
@@ -133,11 +123,12 @@ export default function HomePage() {
     });
 
     // Parallel: server check + AI intelligence
-    const checkPromise = fetch(`/api/check?domain=${encodeURIComponent(domain)}`).then(r => r.ok ? r.json() : null).catch(err => { console.error("[check] API error:", err); return null; });
-    const intelPromise = fetch(`/api/intelligence?domain=${encodeURIComponent(domain)}`).then(r => r.ok ? r.json() : null).catch(err => { console.error("[intel] API error:", err); return null; });
+    const checkPromise = fetch(`/api/check?domain=${encodeURIComponent(domain)}`, { signal: controller.signal }).then(r => r.ok ? r.json() : null).catch(err => { if (err.name !== "AbortError") console.error("[check] API error:", err); return null; });
+    const intelPromise = fetch(`/api/intelligence?domain=${encodeURIComponent(domain)}`, { signal: controller.signal }).then(r => r.ok ? r.json() : null).catch(err => { if (err.name !== "AbortError") console.error("[intel] API error:", err); return null; });
 
     // Show check result as soon as it arrives
     const checkResult = await checkPromise;
+    if (controller.signal.aborted) return;
     if (checkResult) {
       setCheck(checkResult);
     } else {
@@ -146,26 +137,35 @@ export default function HomePage() {
 
     // After check completes, advance to stage 5 (Scanning web intelligence)
     clearStageTimers();
+    if (controller.signal.aborted) return;
     setScanStage(prev => Math.max(prev, 5));
 
     // Intel arrives later — advance to stage 6 (Analyzing outage signals)
     stageTimers.current.push(setTimeout(() => setScanStage(prev => Math.max(prev, 6)), 800));
 
     const intelResult = await intelPromise;
+    if (controller.signal.aborted) return;
     clearStageTimers();
     setScanStage(6);
-    setIntel(intelResult);
+    // Verify the intel response matches the domain we asked for
+    if (intelResult && intelResult.domain && intelResult.domain !== domain) {
+      console.warn(`[intel] Domain mismatch: expected ${domain}, got ${intelResult.domain}`);
+      setIntel(null);
+    } else {
+      setIntel(intelResult);
+    }
     setIntelLoading(false);
 
     // Brief pause on final stage then reveal results
     await new Promise(r => setTimeout(r, 600));
+    if (controller.signal.aborted) return;
     setScanStage(7);
     setLoading(false);
   }
 
   function handleSubmit(e: FormEvent) { e.preventDefault(); if (query.trim()) runCheck(query.trim()); }
   function handleHint(d: string) { setQuery(d); runCheck(d); }
-  function handlePlatform(d: string) { setQuery(d); runCheck(d); window.scrollTo({ top: 0, behavior: "smooth" }); }
+
 
   return (
     <div style={{ position: "relative", zIndex: 1 }}>
@@ -293,17 +293,19 @@ export default function HomePage() {
               Live
             </div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+          <div className="platform-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
             {PLATFORMS.map(p => {
               const svcData = trendingData.find(t => t.domain === p.d);
               return (
                 <PlatformCard
                   key={p.k}
                   platform={p}
-                  onClick={() => handlePlatform(p.d)}
-                  sparkline={sparklines[p.d]}
+                  href={`/${p.slug}`}
+                  sparkline={svcData?.sparkline_24h}
                   status={svcData?.status as any}
-                  reports={svcData?.reports_1h ?? 0}
+                  reports15m={svcData?.reports_15m ?? 0}
+                  baseline={svcData?.baseline ?? 0}
+                  anomalyLevel={svcData?.anomaly_level ?? "normal"}
                 />
               );
             })}
@@ -341,15 +343,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── FOOTER ── */}
-      <div style={{ borderTop: `1px solid ${S.e0}`, padding: "28px 0 32px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 980, margin: "0 auto", padding: "0 20px" }}>
-          <div style={{ fontSize: 12, color: S.t4 }}><strong style={{ color: S.t3, fontWeight: 700 }}>WebsiteDown</strong> · AI-powered outage detection</div>
-          <div style={{ display: "flex", gap: 18 }}>
-            {["About", "API", "Contact", "Privacy"].map(l => <a key={l} href={`/${l.toLowerCase()}`} style={{ fontSize: 11.5, fontWeight: 600, color: S.t4, textDecoration: "none" }}>{l}</a>)}
-          </div>
-        </div>
-      </div>
+      {/* ── NEWSLETTER + FOOTER ── */}
+      <NewsletterFooter />
     </div>
   );
 }
@@ -771,78 +766,122 @@ function IntelUnavailable() {
   );
 }
 
-function PlatformCard({ platform: p, onClick, sparkline, status, reports }: { platform: typeof PLATFORMS[0]; onClick: () => void; sparkline?: number[]; status?: string; reports?: number }) {
+function PlatformCard({ platform: p, href, sparkline, status, reports15m, baseline, anomalyLevel }: {
+  platform: typeof PLATFORMS[0]; href: string; sparkline?: number[]; status?: string;
+  reports15m: number; baseline: number; anomalyLevel: string;
+}) {
   const [hov, setHov] = useState(false);
-  const statusColor = status === "down" ? S.dn : status === "degraded" ? S.warn : S.up;
-  const statusLabel = status === "down" ? "Down" : status === "degraded" ? "Slow" : "Up";
+
+  // Status badge config
+  const badge = status === "down"
+    ? { label: "Outage", color: S.dn, bg: S.dnBg, border: S.dnBd }
+    : status === "degraded" || anomalyLevel === "elevated"
+    ? { label: "Degraded", color: S.warn, bg: S.warnBg, border: S.warnBd }
+    : { label: "Operational", color: S.up, bg: S.upBg, border: S.upBd };
+
+  // Sparkline color based on status
+  const sparkColor = status === "down" ? S.dn : (status === "degraded" || anomalyLevel !== "normal") ? S.warn : S.ac;
+
+  // Brand color with opacity for icon background on hover
+  const brandColor = p.color;
+  const brandBg = `${brandColor}12`;
+  const brandBorder = `${brandColor}20`;
+
   return (
-    <div onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} style={{
-      borderRadius: 12, padding: 1, cursor: "pointer", transition: "all 0.22s", textDecoration: "none", color: S.t1,
-      background: hov ? `linear-gradient(145deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03), rgba(255,255,255,0.07))` : S.e1,
-      transform: hov ? "translateY(-2px)" : "none",
-      boxShadow: hov ? "0 12px 32px rgba(0,0,0,0.25)" : "none",
+    <a href={href} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} style={{
+      borderRadius: 14, padding: 1, cursor: "pointer", transition: "all 0.25s cubic-bezier(0.16,1,0.3,1)", textDecoration: "none", color: S.t1, display: "block",
+      background: hov ? `linear-gradient(145deg, ${brandColor}18, ${brandColor}08, ${brandColor}14)` : S.e1,
+      transform: hov ? "translateY(-4px) scale(1.01)" : "none",
+      boxShadow: hov ? `0 20px 48px rgba(0,0,0,0.35), 0 0 0 1px ${brandColor}15` : "none",
     }}>
-      <div style={{ background: hov ? S.s2 : S.s1, borderRadius: 11, padding: 18, display: "flex", flexDirection: "column", gap: 10, transition: "background 0.22s" }}>
+      <div style={{ background: hov ? S.s2 : S.s1, borderRadius: 13, padding: 16, display: "flex", flexDirection: "column", gap: 10, transition: "background 0.25s", minHeight: 170 }}>
+        {/* Header: icon + status badge */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div
-            style={{ width: 36, height: 36, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", background: S.s3, border: `1px solid ${hov ? S.e2 : S.e1}`, color: hov ? S.t1 : S.t3, transition: "all 0.22s", transform: hov ? "scale(1.06)" : "none" }}
-            dangerouslySetInnerHTML={{ __html: IC[p.k] }}
-          />
-          <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: statusColor }}>
-            <span style={{ width: 4, height: 4, borderRadius: "50%", background: statusColor, boxShadow: `0 0 4px ${statusColor}33`, display: "inline-block" }} />
-            {statusLabel}
+          <div style={{
+            width: 38, height: 38, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center",
+            background: hov ? brandBg : S.s3,
+            border: `1px solid ${hov ? brandBorder : S.e1}`,
+            transition: "all 0.25s cubic-bezier(0.16,1,0.3,1)",
+            transform: hov ? "scale(1.08)" : "none",
+          }}>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill={hov ? brandColor : S.t3} style={{ transition: "fill 0.25s" }} dangerouslySetInnerHTML={{ __html: IC[p.k]?.replace(/<\/?svg[^>]*>/g, "") || "" }} />
           </div>
+          <div style={{
+            display: "flex", alignItems: "center", gap: 5,
+            padding: "3px 8px", borderRadius: 6,
+            background: badge.bg, border: `1px solid ${badge.border}`,
+            fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: badge.color,
+          }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: badge.color, boxShadow: `0 0 8px ${badge.color}55`, display: "inline-block", position: "relative" }}>
+              {status === "down" && <span style={{ position: "absolute", inset: -2, borderRadius: "50%", background: badge.color, animation: "livePulse 1.5s ease-in-out infinite" }} />}
+            </span>
+            {badge.label}
+          </div>
+        </div>
+
+        {/* Platform name + domain */}
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-0.02em", transition: "color 0.2s", color: hov ? brandColor : S.t1 }}>{p.n}</div>
+          <div style={{ fontFamily: S.mono, fontSize: 10.5, color: S.t4, marginTop: 1 }}>{p.d}</div>
         </div>
 
         {/* Mini sparkline */}
-        <MiniSparkline data={sparkline} reports={reports} />
+        <div style={{ flex: 1, display: "flex", alignItems: "flex-end" }}>
+          <MiniSparkline data={sparkline} color={sparkColor} />
+        </div>
 
-        <div>
-          <div style={{ fontSize: 13.5, fontWeight: 700, letterSpacing: "-0.02em" }}>{p.n}</div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 1 }}>
-            <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 10.5, color: S.t4 }}>{p.d}</span>
-            {(reports ?? 0) > 0 && (
-              <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 9, color: S.t4 }}>{reports} rpt{(reports ?? 0) !== 1 ? "s" : ""}</span>
-            )}
+        {/* Report count + baseline */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: `1px solid ${S.e0}`, paddingTop: 8, marginTop: 2 }}>
+          <div style={{ fontFamily: S.mono, fontSize: 10, color: reports15m > 0 ? S.t2 : S.t4 }}>
+            <span style={{ fontWeight: 700, color: reports15m > 0 ? (reports15m >= 20 ? S.dn : S.warn) : S.t4 }}>{reports15m}</span>
+            <span> rpts / 15m</span>
           </div>
+          {baseline > 0 && (
+            <div style={{ fontFamily: S.mono, fontSize: 9, color: S.t4 }}>
+              avg {baseline}
+            </div>
+          )}
         </div>
       </div>
-    </div>
+    </a>
   );
 }
 
-function MiniSparkline({ data, reports }: { data?: number[]; reports?: number }) {
+function MiniSparkline({ data, color }: { data?: number[]; color?: string }) {
+  const lineColor = color || S.ac;
+
   if (!data || data.length === 0) {
-    // Render flat line placeholder
     return (
-      <svg width="100%" height={24} viewBox="0 0 120 24" preserveAspectRatio="none" style={{ display: "block" }}>
-        <line x1={0} x2={120} y1={20} y2={20} stroke={S.e1} strokeWidth={1} />
+      <svg width="100%" height={28} viewBox="0 0 120 28" preserveAspectRatio="none" style={{ display: "block" }}>
+        <line x1={0} x2={120} y1={24} y2={24} stroke={S.e1} strokeWidth={1} />
       </svg>
     );
   }
 
-  const w = 120, h = 24;
+  const w = 120, h = 28;
   const max = Math.max(...data, 1);
   const step = w / Math.max(data.length - 1, 1);
-  const hasSpike = data.some(v => v >= 20);
-  const lineColor = hasSpike ? S.dn : (reports && reports > 0) ? S.warn : S.ac;
-  const fillColor = hasSpike ? S.dn : (reports && reports > 0) ? S.warn : S.ac;
 
-  const pts = data.map((v, i) => `${(i * step).toFixed(1)},${(h - 2 - (v / max) * (h - 4)).toFixed(1)}`);
+  const pts = data.map((v, i) => `${(i * step).toFixed(1)},${(h - 3 - (v / max) * (h - 6)).toFixed(1)}`);
   const line = `M${pts.join(" L")}`;
   const area = `${line} L${w},${h} L0,${h} Z`;
 
-  // Peak dot
   const peakVal = Math.max(...data);
-  const peakIdx = data.indexOf(peakVal);
+  const peakIdx = data.lastIndexOf(peakVal);
   const peakX = peakIdx * step;
-  const peakY = h - 2 - (peakVal / max) * (h - 4);
+  const peakY = h - 3 - (peakVal / max) * (h - 6);
 
   return (
     <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ display: "block", borderRadius: 4 }}>
-      <path d={area} fill={fillColor} opacity={0.06} />
-      <path d={line} fill="none" stroke={lineColor} strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" opacity={0.6} />
-      {peakVal > 0 && <circle cx={peakX} cy={peakY} r={1.5} fill={lineColor} opacity={0.8} />}
+      <defs>
+        <linearGradient id={`spk-${lineColor.replace(/[^a-z0-9]/gi, "")}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={lineColor} stopOpacity={0.12} />
+          <stop offset="100%" stopColor={lineColor} stopOpacity={0.01} />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#spk-${lineColor.replace(/[^a-z0-9]/gi, "")})`} />
+      <path d={line} fill="none" stroke={lineColor} strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round" opacity={0.7} />
+      {peakVal > 0 && <circle cx={peakX} cy={peakY} r={2} fill={lineColor} opacity={0.9} />}
     </svg>
   );
 }
@@ -970,16 +1009,17 @@ function CurrentOutages() {
     const aO = a.anomaly_level !== "normal" ? -1 : (statusOrder[a.status] ?? 3);
     const bO = b.anomaly_level !== "normal" ? -1 : (statusOrder[b.status] ?? 3);
     if (aO !== bO) return aO - bO;
-    return b.reports_1h - a.reports_1h;
+    return b.reports_15m - a.reports_15m || b.reports_1h - a.reports_1h;
   });
 
   const hasIssues = data.outages.length > 0;
+  const totalReports = data.services.reduce((s, v) => s + v.reports_15m, 0);
 
   return (
     <section style={{ padding: "76px 0" }} id="outages">
       <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 20px" }}>
         {/* Header */}
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <h2 style={{ fontFamily: "var(--font-manrope)", fontSize: 21, fontWeight: 800, letterSpacing: "-0.04em" }}>Current Internet Outages</h2>
             {hasIssues && (
@@ -992,10 +1032,10 @@ function CurrentOutages() {
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 11, fontWeight: 600, color: S.t4 }}>
-            <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 9.5, color: S.t5 }}>
-              refresh in {countdown}s
+            <span style={{ fontFamily: S.mono, fontSize: 9.5, color: S.t5 }}>
+              {countdown}s
             </span>
-            {lastUpdate && <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 10 }}>{lastUpdate}</span>}
+            {lastUpdate && <span style={{ fontFamily: S.mono, fontSize: 10 }}>{lastUpdate}</span>}
             <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <span style={{ width: 4, height: 4, borderRadius: "50%", background: S.up, display: "inline-block", position: "relative" }}>
                 <span style={{ position: "absolute", inset: 0, borderRadius: "50%", background: S.up, animation: "livePulse 2s ease-in-out infinite" }} />
@@ -1005,19 +1045,24 @@ function CurrentOutages() {
           </div>
         </div>
 
-        {/* Summary bar + signal sources */}
-        <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
-          <SummaryChip label="Tracked" value={data.total} />
-          <SummaryChip label="Operational" value={data.operational} color={S.up} />
-          {data.issues > 0 && <SummaryChip label="Issues" value={data.issues} color={S.dn} />}
-          <div style={{ marginLeft: "auto", display: "flex", gap: 4, flexWrap: "wrap" }}>
-            <SignalSourceTag label="User Reports" icon="reports" />
-            <SignalSourceTag label="AI Signals" icon="ai" />
-            <SignalSourceTag label="Error Spikes" icon="errors" />
-          </div>
+        {/* Dashboard status strip */}
+        <div style={{
+          display: "flex", gap: 1, marginBottom: 16, borderRadius: 10, overflow: "hidden",
+          background: S.s1, border: `1px solid ${S.e0}`,
+        }}>
+          <DashStat label="Monitored" value={data.total} />
+          <DashStat label="Operational" value={data.operational} color={S.up} />
+          <DashStat label="Issues" value={data.issues} color={data.issues > 0 ? S.dn : S.t4} />
+          <DashStat label="Reports / 15m" value={totalReports} color={totalReports > 0 ? S.warn : S.t4} />
         </div>
 
-        {/* Live activity feed ticker */}
+        {/* Signal sources + live feed */}
+        <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
+          <SignalSourceTag label="User Reports" icon="reports" />
+          <SignalSourceTag label="AI Signals" icon="ai" />
+          <SignalSourceTag label="Error Spikes" icon="errors" />
+        </div>
+
         {feed.length > 0 && <LiveFeedTicker feed={feed} />}
 
         {/* Global status banner */}
@@ -1027,14 +1072,17 @@ function CurrentOutages() {
             background: S.upBg, border: `1px solid ${S.upBd}`,
             display: "flex", alignItems: "center", gap: 10,
           }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: S.up }} />
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: S.up, position: "relative" }}>
+              <span style={{ position: "absolute", inset: 0, borderRadius: "50%", background: S.up, animation: "livePulse 2.5s ease-in-out infinite" }} />
+            </span>
             <span style={{ fontSize: 12.5, fontWeight: 600, color: S.up }}>All monitored services are operational</span>
+            <span style={{ marginLeft: "auto", fontFamily: S.mono, fontSize: 9, color: S.t5 }}>{data.operational}/{data.total} healthy</span>
           </div>
         )}
 
         {/* Outage cards grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
-          {sorted.slice(0, 12).map((svc) => (
+        <div className="outage-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
+          {sorted.slice(0, 12).map((svc, idx) => (
             <OutageCard
               key={svc.domain}
               svc={svc}
@@ -1042,11 +1090,22 @@ function CurrentOutages() {
               onReport={() => submitReport(svc.domain)}
               isReporting={reportingDomain === svc.domain}
               hasReported={reportSent.has(svc.domain)}
+              priority={idx < 3 && svc.anomaly_level !== "normal"}
             />
           ))}
         </div>
       </div>
     </section>
+  );
+}
+
+/* ── Dashboard Stat Cell ── */
+function DashStat({ label, value, color }: { label: string; value: number; color?: string }) {
+  return (
+    <div style={{ flex: 1, padding: "12px 16px", textAlign: "center" }}>
+      <div style={{ fontFamily: S.mono, fontSize: 20, fontWeight: 800, color: color || S.t1, letterSpacing: "-0.03em", lineHeight: 1.1 }}>{value}</div>
+      <div style={{ fontSize: 9.5, fontWeight: 600, color: S.t4, textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 3 }}>{label}</div>
+    </div>
   );
 }
 
@@ -1115,25 +1174,17 @@ function LiveFeedTicker({ feed }: { feed: FeedItem[] }) {
   );
 }
 
-function SummaryChip({ label, value, color }: { label: string; value: number; color?: string }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, background: S.s1, border: `1px solid ${S.e0}`, fontSize: 11, fontWeight: 600 }}>
-      <span style={{ color: S.t4 }}>{label}</span>
-      <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", color: color || S.t2 }}>{value}</span>
-    </div>
-  );
-}
 
-function OutageCard({ svc, sparkline, onReport, isReporting, hasReported }: { svc: OutageService; sparkline?: number[]; onReport: () => void; isReporting: boolean; hasReported: boolean }) {
+function OutageCard({ svc, sparkline, onReport, isReporting, hasReported, priority }: { svc: OutageService; sparkline?: number[]; onReport: () => void; isReporting: boolean; hasReported: boolean; priority?: boolean }) {
   const [hov, setHov] = useState(false);
 
-  const statusColors: Record<string, { dot: string; label: string }> = {
-    operational: { dot: S.up, label: "Operational" },
-    degraded: { dot: S.warn, label: "Degraded" },
-    down: { dot: S.dn, label: "Down" },
-    unknown: { dot: S.t4, label: "Unknown" },
+  const statusConfig: Record<string, { dot: string; label: string; bg: string; border: string }> = {
+    operational: { dot: S.up, label: "Operational", bg: S.upBg, border: S.upBd },
+    degraded: { dot: S.warn, label: "Degraded", bg: S.warnBg, border: S.warnBd },
+    down: { dot: S.dn, label: "Outage", bg: S.dnBg, border: S.dnBd },
+    unknown: { dot: S.t4, label: "Unknown", bg: "rgba(255,255,255,0.03)", border: S.e1 },
   };
-  const st = statusColors[svc.status] || statusColors.unknown;
+  const st = statusConfig[svc.status] || statusConfig.unknown;
 
   const isAbnormal = svc.anomaly_level !== "normal";
   const isMajor = svc.anomaly_level === "major";
@@ -1153,16 +1204,16 @@ function OutageCard({ svc, sparkline, onReport, isReporting, hasReported }: { sv
         background: hov
           ? `linear-gradient(145deg, ${isAbnormal ? (isMajor ? "rgba(248,113,113,0.2)" : "rgba(251,191,36,0.15)") : "rgba(255,255,255,0.09)"}, rgba(255,255,255,0.03))`
           : isAbnormal ? `linear-gradient(145deg, ${isMajor ? "rgba(248,113,113,0.08)" : "rgba(251,191,36,0.06)"}, ${S.e1})` : S.e1,
-        transform: hov ? "translateY(-2px)" : "none",
-        boxShadow: hov ? `0 12px 32px rgba(0,0,0,0.25)` : "none",
+        transform: hov ? "translateY(-3px)" : "none",
+        boxShadow: hov ? `0 16px 40px rgba(0,0,0,0.3)` : "none",
       }}
     >
       <div style={{
         background: hov ? S.s2 : S.s1, borderRadius: 11, padding: "16px 18px",
         display: "flex", flexDirection: "column", gap: 10, transition: "background 0.22s",
-        minHeight: 168,
+        minHeight: 190,
       }}>
-        {/* Top: service name + status */}
+        {/* Top: service name + status badge */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <a href={`/status/${svc.domain}`} style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, textDecoration: "none", color: "inherit" }}>
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: st.dot, flexShrink: 0, position: "relative" }}>
@@ -1170,7 +1221,35 @@ function OutageCard({ svc, sparkline, onReport, isReporting, hasReported }: { sv
             </span>
             <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: "-0.02em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{svc.service}</span>
           </a>
-          <span style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: st.dot, whiteSpace: "nowrap", flexShrink: 0 }}>{st.label}</span>
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 4,
+            padding: "3px 8px", borderRadius: 6,
+            background: st.bg, border: `1px solid ${st.border}`,
+            fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: st.dot,
+          }}>
+            <span style={{ width: 4, height: 4, borderRadius: "50%", background: st.dot, boxShadow: `0 0 6px ${st.dot}44` }} />
+            {st.label}
+          </div>
+        </div>
+
+        {/* Report count — prominent */}
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+          <span style={{ fontFamily: S.mono, fontSize: 26, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1, color: svc.reports_15m > 0 ? accentColor : S.t3 }}>
+            {svc.reports_15m}
+          </span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+            <span style={{ fontSize: 10, fontWeight: 600, color: S.t3 }}>reports / 15m</span>
+            {svc.baseline > 0 && (
+              <span style={{ fontFamily: S.mono, fontSize: 9, color: S.t5 }}>
+                baseline: {svc.baseline}
+              </span>
+            )}
+          </div>
+          {svc.trend_pct != null && svc.trend_pct > 0 && (
+            <span style={{ marginLeft: "auto", fontFamily: S.mono, fontSize: 10, fontWeight: 700, color: svc.trend_pct >= 500 ? S.dn : S.warn, padding: "2px 6px", borderRadius: 4, background: svc.trend_pct >= 500 ? S.dnBg : S.warnBg }}>
+              +{svc.trend_pct}%
+            </span>
+          )}
         </div>
 
         {/* Signal source badges */}
@@ -1189,46 +1268,17 @@ function OutageCard({ svc, sparkline, onReport, isReporting, hasReported }: { sv
         )}
 
         {/* Sparkline */}
-        <div style={{ flex: 1, minHeight: 32 }}>
+        <div style={{ flex: 1, minHeight: 36, display: "flex", alignItems: "flex-end" }}>
           <OutageSparkline data={sparkline} anomaly={svc.anomaly_level} />
         </div>
 
-        {/* Report count + trend */}
-        <div>
-          {svc.reports_15m > 0 ? (
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: accentColor, lineHeight: 1.4 }}>
-                <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontWeight: 700, fontSize: 16 }}>{svc.reports_15m}</span>
-                <span style={{ color: S.t3, fontWeight: 500 }}> reports in last 15 min</span>
-              </div>
-              {svc.trend_pct != null && svc.trend_pct > 0 && (
-                <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 9.5, fontWeight: 700, color: svc.trend_pct >= 500 ? S.dn : S.warn }}>
-                  +{svc.trend_pct}%
-                </span>
-              )}
-            </div>
-          ) : svc.reports_1h > 0 ? (
-            <div style={{ fontSize: 12, fontWeight: 600, color: S.t3, lineHeight: 1.4 }}>
-              <span style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontWeight: 700, fontSize: 16, color: S.t2 }}>{svc.reports_1h}</span>
-              <span style={{ fontWeight: 500 }}> reports in last hour</span>
-            </div>
-          ) : (
-            <div style={{ fontSize: 11, color: S.t4 }}>No recent reports</div>
-          )}
-          {lastReportAgo && (svc.reports_15m > 0 || svc.reports_1h > 0) && (
-            <div style={{ fontFamily: "var(--font-jetbrains), var(--mono)", fontSize: 9, color: S.t5, marginTop: 2 }}>
-              Last report {lastReportAgo}
-            </div>
-          )}
-        </div>
-
-        {/* Anomaly badge + report button row */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        {/* Bottom: anomaly badge + last report + report button */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, borderTop: `1px solid ${S.e0}`, paddingTop: 10 }}>
           {spikeLabel ? (
             <div style={{
               display: "inline-flex", alignItems: "center", gap: 5,
               padding: "4px 10px", borderRadius: 6,
-              fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em",
+              fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em",
               color: isMajor ? S.dn : S.warn,
               background: isMajor ? S.dnBg : S.warnBg,
               border: `1px solid ${isMajor ? S.dnBd : S.warnBd}`,
@@ -1238,7 +1288,11 @@ function OutageCard({ svc, sparkline, onReport, isReporting, hasReported }: { sv
               </svg>
               {spikeLabel}
             </div>
-          ) : <div />}
+          ) : lastReportAgo && (svc.reports_15m > 0 || svc.reports_1h > 0) ? (
+            <span style={{ fontFamily: S.mono, fontSize: 9, color: S.t5 }}>Last report {lastReportAgo}</span>
+          ) : (
+            <span style={{ fontSize: 10, color: S.t4 }}>No recent reports</span>
+          )}
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (!hasReported && !isReporting) onReport(); }}
             disabled={hasReported || isReporting}
@@ -1252,6 +1306,7 @@ function OutageCard({ svc, sparkline, onReport, isReporting, hasReported }: { sv
               cursor: hasReported ? "default" : isReporting ? "wait" : "pointer",
               transition: "all 0.15s",
               opacity: isReporting ? 0.5 : 1,
+              flexShrink: 0,
             }}
           >
             {hasReported ? (
@@ -1341,6 +1396,118 @@ function parseStyle(str: string): Record<string, string> {
     if (k && v) result[k] = v;
   });
   return result;
+}
+
+/* ================================================================
+   NEWSLETTER FOOTER — email capture + footer links
+   ================================================================ */
+
+function NewsletterFooter() {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [message, setMessage] = useState("");
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!email.trim() || status === "loading") return;
+
+    setStatus("loading");
+    try {
+      const res = await fetch("/api/newsletter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStatus("success");
+        setMessage(data.message);
+        setEmail("");
+      } else {
+        setStatus("error");
+        setMessage(data.error || "Something went wrong.");
+      }
+    } catch {
+      setStatus("error");
+      setMessage("Connection error. Please try again.");
+    }
+  }
+
+  return (
+    <footer style={{ borderTop: `1px solid ${S.e0}` }}>
+      {/* Newsletter section */}
+      <div style={{ maxWidth: 980, margin: "0 auto", padding: "40px 20px 32px" }}>
+        <div style={{
+          borderRadius: 14, padding: 1,
+          background: `linear-gradient(135deg, rgba(165,180,252,0.1), rgba(129,140,248,0.04), rgba(165,180,252,0.08))`,
+        }}>
+          <div style={{
+            background: S.s1, borderRadius: 13, padding: "28px 28px",
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            flexWrap: "wrap", gap: 20,
+          }}>
+            <div style={{ flex: 1, minWidth: 240 }}>
+              <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.03em", marginBottom: 6 }}>
+                Get notified when major services go down.
+              </div>
+              <div style={{ fontSize: 13, color: S.t3, lineHeight: 1.5 }}>
+                Get outage alerts and monitoring updates.
+              </div>
+            </div>
+            <div style={{ flex: 1, minWidth: 280, maxWidth: 420 }}>
+              {status === "success" ? (
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "12px 16px", borderRadius: 10,
+                  background: S.upBg, border: `1px solid ${S.upBd}`,
+                }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill={S.up}><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: S.up }}>{message}</span>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8 }}>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => { setEmail(e.target.value); if (status === "error") setStatus("idle"); }}
+                    placeholder="you@email.com"
+                    required
+                    style={{
+                      flex: 1, padding: "11px 14px", fontSize: 13, fontWeight: 500,
+                      background: S.s2, color: S.t1, border: `1px solid ${status === "error" ? S.dnBd : S.e1}`,
+                      borderRadius: 10, outline: "none",
+                    }}
+                  />
+                  <button type="submit" disabled={status === "loading"} style={{
+                    padding: "11px 22px", fontSize: 12.5, fontWeight: 800,
+                    background: S.t1, color: S.bg, border: "none", borderRadius: 10,
+                    cursor: status === "loading" ? "not-allowed" : "pointer",
+                    opacity: status === "loading" ? 0.5 : 1,
+                    letterSpacing: "-0.02em", whiteSpace: "nowrap",
+                  }}>
+                    {status === "loading" ? "..." : "Subscribe"}
+                  </button>
+                </form>
+              )}
+              {status === "error" && (
+                <div style={{ fontSize: 11, color: S.dn, marginTop: 6, fontWeight: 500 }}>{message}</div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer links */}
+      <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 20px 32px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ fontSize: 12, color: S.t4 }}><strong style={{ color: S.t3, fontWeight: 700 }}>WebsiteDown</strong> · AI-powered outage detection</div>
+          <div style={{ display: "flex", gap: 18 }}>
+            {["About", "API", "Contact", "Privacy"].map(l => <a key={l} href={`/${l.toLowerCase()}`} style={{ fontSize: 11.5, fontWeight: 600, color: S.t4, textDecoration: "none" }}>{l}</a>)}
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
 }
 
 async function clientCheck(domain: string): Promise<CheckResult> {

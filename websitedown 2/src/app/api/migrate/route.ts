@@ -59,6 +59,17 @@ CREATE INDEX IF NOT EXISTS idx_monitors_active ON monitors(is_active, last_check
 CREATE INDEX IF NOT EXISTS idx_monitor_checks_monitor ON monitor_checks(monitor_id, checked_at DESC);
 CREATE INDEX IF NOT EXISTS idx_incidents_monitor ON incidents(monitor_id, started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_alert_channels_user ON alert_channels(user_id);
+
+CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT UNIQUE NOT NULL,
+  confirmed BOOLEAN DEFAULT false,
+  confirm_token TEXT,
+  confirmed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_newsletter_email ON newsletter_subscribers(email);
 `;
 
 export async function POST(req: NextRequest) {
@@ -72,7 +83,7 @@ export async function POST(req: NextRequest) {
     for (const stmt of statements) {
       await db.query(stmt + ";");
     }
-    return NextResponse.json({ ok: true, tables: ["users", "monitors", "monitor_checks", "incidents", "alert_channels"] });
+    return NextResponse.json({ ok: true, tables: ["users", "monitors", "monitor_checks", "incidents", "alert_channels", "newsletter_subscribers"] });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
