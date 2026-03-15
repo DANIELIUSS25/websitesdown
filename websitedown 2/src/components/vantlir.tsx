@@ -1,35 +1,13 @@
 "use client";
 
 import { tokens } from "@/lib/design-tokens";
+import { VantlirLogo } from "@/components/VantlirLogo";
 
 const S = tokens;
 
 /**
- * Vantlir logo mark — minimal "V" chevron icon.
- */
-export function VantlirLogo({ size = 14 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-label="Vantlir"
-    >
-      <path
-        d="M2 6l10 13L22 6"
-        stroke={S.t3}
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-/**
  * "Powered by Vantlir" badge — subtle, dark-theme-native.
+ * Uses the full VantlirLogo SVG (icon-only, no wordmark) at small size.
  * Links to https://vantlir.com.
  */
 export function PoweredByVantlir({ style }: { style?: React.CSSProperties }) {
@@ -41,7 +19,7 @@ export function PoweredByVantlir({ style }: { style?: React.CSSProperties }) {
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 5,
+        gap: 6,
         fontSize: 10.5,
         fontWeight: 600,
         color: S.t4,
@@ -53,7 +31,7 @@ export function PoweredByVantlir({ style }: { style?: React.CSSProperties }) {
       onMouseEnter={e => (e.currentTarget.style.color = S.t3)}
       onMouseLeave={e => (e.currentTarget.style.color = S.t4)}
     >
-      <VantlirLogo size={12} />
+      <VantlirLogo size={14} showWord={false} />
       <span>Powered by <span style={{ fontWeight: 800 }}>Vantlir</span></span>
     </a>
   );
